@@ -4,7 +4,11 @@ set -e
 
 sudo echo "Got root permissions"
 
-OPT_ROOT=/opt/cc
+OPT_ROOT=/opt/arch
+
+CC_COMPILER=clang-11
+CXX_COMPILER=clang++-11
+LINKER=lld-11
 
 NO_CLEANUP=1
 if [ "$NO_CLEANUP" = "1" ] ; then
@@ -17,7 +21,7 @@ fi
 trap cleanup EXIT
 cleanup()
 {
-    if ! [ "$NO_CLEANUP" = "1" ] ; then
+    if [ "$NO_CLEANUP" != "1" ] ; then
         rm -rf $TMPD
         rm -f $HOME/user-config.jam
     fi    
@@ -26,10 +30,10 @@ cleanup()
 # -------------------------------------------------- ensure subversion installed
 
 sudo apt-get install -y \
-     wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev \
-     python3-dev python3-pip python3-tk python3-lxml python3-six \
+     wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
+     python3-dev python3-pip python3-tk python3-lxml python3-six              \
      libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
-     libgmp-dev libmpfr-dev libmpc-dev libasan6
+     libgmp-dev libmpfr-dev libmpc-dev libasan6 lld-11 clang-11
 
 # ------------------------------------------------------------------------ boost
 
@@ -41,7 +45,7 @@ build_boost()
     TOOLSET="$4"
     STD="$5"
 
-    BOOST_VERSION=1_72_0
+    BOOST_VERSION=1_76_0
     NO_CLEANUP=1
 
     if [ "$NO_CLEANUP" = "1" ] ; then
@@ -125,8 +129,8 @@ build_clang()
     nice ionice -c3 cmake -G "Ninja" \
          -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly;lldb" \
          -DCMAKE_BUILD_TYPE=release \
-         -DCMAKE_C_COMPILER=clang-6.0 \
-         -DCMAKE_CXX_COMPILER=clang++-6.0 \
+         -DCMAKE_C_COMPILER=$CC_COMPILER \
+         -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
          -DLLVM_ENABLE_ASSERTIONS=Off \
          -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=Yes \
          -DLIBCXX_ENABLE_SHARED=YES \
@@ -134,7 +138,7 @@ build_clang()
          -DLIBCXX_ENABLE_FILESYSTEM=YES \
          -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=YES \
          -LLVM_ENABLE_LTO=thin \
-         -LLVM_USE_LINKER=lld-6.0 \
+         -LLVM_USE_LINKER=$LINKER \
          -DLLVM_BUILD_LLVM_DYLIB=YES \
          -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
          -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
@@ -144,7 +148,8 @@ build_clang()
          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX} \
          $SRC_D/llvm-project/llvm
 
-    /usr/bin/time -v nice ionice -c3 ninja 2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
+    /usr/bin/time -v nice ionice -c3 ninja \
+                  2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
     sudo ninja install | tee -a $BUILD_D/stdout.text
     cat $BUILD_D/stderr.text   
 }
@@ -167,8 +172,10 @@ build_gcc()
     mkdir -p "$SRCD/build"
     cd "$SRCD/build"
     
-    nice ionice -c3 ../gcc/configure --prefix=${OPT_ROOT}/gcc-${SUFFIX} --enable-languages=all --disable-multilib 
-    /usr/bin/time -v nice ionice -c3 make -j$(nproc) 2>$SRCD/build/stderr.text | tee $SRCD/build/stdour.text
+    nice ionice -c3 ../gcc/configure \
+         --prefix=${OPT_ROOT}/gcc-${SUFFIX} --enable-languages=all --disable-multilib 
+    /usr/bin/time -v nice ionice -c3 make -j$(nproc) \
+                  2>$SRCD/build/stderr.text | tee $SRCD/build/stdour.text
     sudo make install | tee -a $SRCD/build/stdour.text
 }
 
@@ -201,7 +208,7 @@ build_valgrind()
     bzip2 -dc valgrind-${VALGRIND_VERSION}.tar.bz2 | tar -xf -
     rm -f valgrind-${VALGRIND_VERSION}.tar.bz2
     cd "$VAL_D"
-    export CC=clang-6.0
+    export CC=$CC_COMPILER
     ./autogen.sh
     ./configure --prefix=/usr/local
     nice ionice -c3 make -j$(nproc)
@@ -211,10 +218,11 @@ build_valgrind()
 
 # ------------------------------------------------------------------------ build
 
-#build_clang llvmorg-11.1.0     11.1.0
-build_clang llvmorg-12.0.0     12.0.0-rc5
 #build_clang llvmorg-13-init    13.0.0
-build_gcc 10.3.0
-build_valgrind 3.14.0
+build_clang llvmorg-12.0.0     12.0.0
+#build_clang llvmorg-11.1.0     11.1.0
+#build_clang llvmorg-11.0.1     11.0.1
+#build_gcc 10.2.0
+#build_valgrind 3.14.0
 
 #build_boost 
