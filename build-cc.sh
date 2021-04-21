@@ -221,7 +221,7 @@ build_valgrind()
 
 # ------------------------------------------------------------------------ build
 
-#build_clang llvmorg-13-init    13.0.0
+build_clang llvmorg-13-init    13.0.0
 build_clang llvmorg-12.0.0     12.0.0
 #build_clang llvmorg-11.1.0     11.1.0
 #build_clang llvmorg-11.0.1     11.0.1
