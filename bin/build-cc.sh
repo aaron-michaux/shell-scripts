@@ -155,6 +155,7 @@ build_gcc()
     local TAG="$1"
     local SUFFIX="$1"
     if [ "$2" != "" ] ; then SUFFIX="$2" ; fi
+    local MAJOR_VERSION="$(echo "$SUFFIX" | sed 's,\..*$,,')"
 
     local SRCD="$TMPD/$SUFFIX"
     mkdir -p "$SRCD"
@@ -168,8 +169,16 @@ build_gcc()
     if [ -d "$SRCD/build" ] ; then rm -rf "$SRCD/build" ; fi
     mkdir -p "$SRCD/build"
     cd "$SRCD/build"
+
+    local PREFIX="${OPT_ROOT}/gcc-${SUFFIX}"
     
-    nice ../gcc/configure --prefix=${OPT_ROOT}/gcc-${SUFFIX} --enable-languages=c,c++ --disable-multilib 
+    nice ../gcc/configure --prefix=${PREFIX} \
+         --enable-languages=c,c++,objc,obj-c++,fortran,d \
+         --disable-multilib \
+         --program-suffix=-${MAJOR_VERSION} \
+         --libdir=${PREFIX}/lib/gcc/11 \
+         --enable-checking=release \
+         --with-gcc-major-version-only
     $TIMECMD nice make -j$NPROC 2>$SRCD/build/stderr.text | tee $SRCD/build/stdout.text
     make install | tee -a $SRCD/build/stdout.text
 }
