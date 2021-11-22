@@ -2,34 +2,28 @@
 
 set -e
 
-sudo echo "Got root permissions"
+# sudo echo "Got root permissions"
 
-OPT_ROOT=/opt/arch
+OPT_ROOT=/opt/cc
+ARCH_ROOT=/opt/arch
 
-NO_CLEANUP=1
-if [ "$NO_CLEANUP" = "1" ] ; then
-    TMPD=/tmp/build-clang-gcc-boost
-    mkdir -p $TMPD
+if [ "$(uname)" = "Darwin" ] ; then
+    OSX=1
+    NPROC=$(sysctl -n hw.ncpu)
+    TIMECMD="gtime -v"
 else
-    TMPD=$(mktemp -d /tmp/$(basename $0).XXXXXX)
+    OSX=0
+    NPROC=$(nproc)
+    TIMECMD="/usr/bin/time -v"
 fi
-
-trap cleanup EXIT
-cleanup()
-{
-    if [ "$NO_CLEANUP" != "1" ] ; then
-        rm -rf $TMPD
-        rm -f $HOME/user-config.jam
-    fi    
-}
 
 # -------------------------------------------------- ensure subversion installed
 
-sudo apt-get install -y \
-     wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
-     python3-dev python3-pip python3-tk python3-lxml python3-six              \
-     libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
-     libgmp-dev libmpfr-dev libmpc-dev libasan6 lld-10 clang-10
+# sudo apt-get install -y \
+#      wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
+#      python3-dev python3-pip python3-tk python3-lxml python3-six              \
+#      libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
+#      libgmp-dev libmpfr-dev libmpc-dev libasan6 lld-10 clang-10
 
 # ------------------------------------------------------------------ environment
 
@@ -96,104 +90,105 @@ EOF
 
 # ------------------------------------------------------------------------ clang
 
-build_clang()
-{
-    local CLANG_V="$1"
-    local TAG="$2"
-    local LLVM_DIR="llvm"
+# build_clang()
+# {
+#     local CLANG_V="$1"
+#     local TAG="$2"
+#     local LLVM_DIR="llvm"
 
-    local SRC_D=$TMPD/$LLVM_DIR
-    local BUILD_D="$TMPD/build-llvm-${TAG}"
+#     local SRC_D=$TMPD/$LLVM_DIR
+#     local BUILD_D="$TMPD/build-llvm-${TAG}"
 
-    local INSTALL_PREFIX="${OPT_ROOT}/clang-${TAG}"
+#     local INSTALL_PREFIX="${OPT_ROOT}/clang-${TAG}"
     
-    rm -rf "$BUILD_D"
-    mkdir -p "$SRC_D"
-    mkdir -p "$BUILD_D"
+#     rm -rf "$BUILD_D"
+#     mkdir -p "$SRC_D"
+#     mkdir -p "$BUILD_D"
 
-    cd "$SRC_D"
+#     cd "$SRC_D"
 
-    ! [ -d "llvm-project" ] &&
-        git clone https://github.com/llvm/llvm-project.git
-    cd llvm-project
+#     ! [ -d "llvm-project" ] &&
+#         git clone https://github.com/llvm/llvm-project.git
+#     cd llvm-project
     
-    git checkout "$CLANG_V"
+#     git checkout "$CLANG_V"
 
-    cd "$BUILD_D"
+#     cd "$BUILD_D"
 
-    # NOTE, to build lldb, may need to specify the python3
-    #       variables below, and something else for CURSES
-    # -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
-    # -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
-    # -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
-    # -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
-    # -DCURSES_INCLUDE_PATH=/usr/include/ \
+#     # NOTE, to build lldb, may need to specify the python3
+#     #       variables below, and something else for CURSES
+#     # -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
+#     # -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
+#     # -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
+#     # -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
+#     # -DCURSES_INCLUDE_PATH=/usr/include/ \
 
-    nice ionice -c3 cmake -G "Ninja" \
-         -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly;lldb" \
-         -DCMAKE_BUILD_TYPE=release \
-         -DCMAKE_C_COMPILER=$CC_COMPILER \
-         -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
-         -DLLVM_ENABLE_ASSERTIONS=Off \
-         -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=Yes \
-         -DLIBCXX_ENABLE_SHARED=YES \
-         -DLIBCXX_ENABLE_STATIC=YES \
-         -DLIBCXX_ENABLE_FILESYSTEM=YES \
-         -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=YES \
-         -LLVM_ENABLE_LTO=thin \
-         -LLVM_USE_LINKER=$LINKER \
-         -DLLVM_BUILD_LLVM_DYLIB=YES \
-         -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
-         -DCURSES_INCLUDE_PATH=/usr/include/ \
-         -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX} \
-         $SRC_D/llvm-project/llvm
+#     nice ionice -c3 cmake -G "Ninja" \
+#          -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly;lldb" \
+#          -DCMAKE_BUILD_TYPE=release \
+#          -DCMAKE_C_COMPILER=$CC_COMPILER \
+#          -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
+#          -DLLVM_ENABLE_ASSERTIONS=Off \
+#          -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=Yes \
+#          -DLIBCXX_ENABLE_SHARED=YES \
+#          -DLIBCXX_ENABLE_STATIC=YES \
+#          -DLIBCXX_ENABLE_FILESYSTEM=YES \
+#          -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=YES \
+#          -LLVM_ENABLE_LTO=thin \
+#          -LLVM_USE_LINKER=$LINKER \
+#          -DLLVM_BUILD_LLVM_DYLIB=YES \
+#          -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
+#          -DCURSES_INCLUDE_PATH=/usr/include/ \
+#          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX} \
+#          $SRC_D/llvm-project/llvm
 
-    /usr/bin/time -v nice ionice -c3 ninja \
-                  2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
-    sudo ninja install | tee -a $BUILD_D/stdout.text
-    cat $BUILD_D/stderr.text   
-}
+#     /usr/bin/time -v nice ionice -c3 ninja \
+#                   2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
+#     sudo ninja install | tee -a $BUILD_D/stdout.text
+#     cat $BUILD_D/stderr.text   
+# }
 
 # -------------------------------------------------------------------------- gcc
 
 build_gcc()
 {
-    TAG="$1"
-    SUFFIX="$1"
+    local TAG="$1"
+    local SUFFIX="$1"
     if [ "$2" != "" ] ; then SUFFIX="$2" ; fi
 
-    SRCD="$TMPD/$SUFFIX"
+    local SRCD="$TMPD/$SUFFIX"
     mkdir -p "$SRCD"
     cd "$SRCD"
-    [ ! -d "gcc" ] && \
+    if [ ! -d "gcc" ] ;then
         git clone -b releases/gcc-${TAG} https://github.com/gcc-mirror/gcc.git
+        cd gcc
+        contrib/download_prerequisites
+    fi
 
     if [ -d "$SRCD/build" ] ; then rm -rf "$SRCD/build" ; fi
     mkdir -p "$SRCD/build"
     cd "$SRCD/build"
     
-    nice ionice -c3 ../gcc/configure \
-         --prefix=${OPT_ROOT}/gcc-${SUFFIX} --enable-languages=all --disable-multilib 
-    /usr/bin/time -v nice ionice -c3 make -j$(nproc) \
-                  2>$SRCD/build/stderr.text | tee $SRCD/build/stdour.text
-    sudo make install | tee -a $SRCD/build/stdour.text
+    nice ../gcc/configure --prefix=${OPT_ROOT}/gcc-${SUFFIX} --enable-languages=c,c++ --disable-multilib 
+    $TIMECMD nice make -j$NPROC 2>$SRCD/build/stderr.text | tee $SRCD/build/stdout.text
+    make install | tee -a $SRCD/build/stdout.text
 }
 
 # ------------------------------------------------------------------------- wasm
 
-build_wasm()
-{
-    [ -d ${OPT_ROOT}/WASM ] && sudo rm -rf ${OPT_ROOT}/WASM
-    sudo mkdir -p ${OPT_ROOT}/WASM
-    sudo chown -R amichaux:amichaux ${OPT_ROOT}/WASM
+# build_wasm()
+# {
+#     [ -d ${OPT_ROOT}/WASM ] && sudo rm -rf ${OPT_ROOT}/WASM
+#     sudo mkdir -p ${OPT_ROOT}/WASM
+#     sudo chown -R amichaux:amichaux ${OPT_ROOT}/WASM
 
-    cd ${OPT_ROOT}/WASM
-    git clone https://github.com/juj/emsdk.git
-    cd emsdk
-    ./emsdk install  --build=Release sdk-incoming-64bit binaryen-master-64bit
-    ./emsdk activate --build=Release sdk-incoming-64bit binaryen-master-64bit
-    source ./emsdk_env.sh --build=Release
-}
+#     cd ${OPT_ROOT}/WASM
+#     git clone https://github.com/juj/emsdk.git
+#     cd emsdk
+#     ./emsdk install  --build=Release sdk-incoming-64bit binaryen-master-64bit
+#     ./emsdk activate --build=Release sdk-incoming-64bit binaryen-master-64bit
+#     source ./emsdk_env.sh --build=Release
+# }
 
 # --------------------------------------------------------------------- valgrind
 
@@ -215,14 +210,88 @@ build_valgrind()
     sudo make install
 }
 
-
 # ------------------------------------------------------------------------ build
 
-build_clang llvmorg-13-init    13.0.0
-build_clang llvmorg-12.0.0     12.0.0
+show_help()
+{
+    cat <<EOF
+
+   Usage: $(basename $0) OPTION* <tool>
+
+   Option:
+
+      --cleanup           Remove temporary files after building
+      --no-cleanup        Do not remove temporary files after building
+
+   Tool:
+
+      gcc-x.y.z
+      valgrind-x.y.z
+
+
+EOF
+}
+
+NO_CLEANUP=1
+ACTION=""
+while (( $# > 0 )) ; do
+    ARG="$1"
+    shift
+
+    [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
+    [ "$ARG" = "--cleanup" ] && NO_CLEANUP=0
+    [ "$ARG" = "--no-cleanup" ] && NO_CLEANUP=1
+    [ "${ARG:0:3}" = "gcc" ] && ACTION="build_gcc ${ARG:4}"
+done
+
+if [ "$NO_CLEANUP" = "1" ] ; then
+    TMPD=/tmp/${USER}-build-cc    
+else
+    TMPD=$(mktemp -d /tmp/$(basename $0).XXXXXX)
+fi
+
+trap cleanup EXIT
+cleanup()
+{
+    if [ "$NO_CLEANUP" != "1" ] ; then
+        rm -rf $TMPD
+        rm -f $HOME/user-config.jam
+    fi    
+}
+
+ensure_directory()
+{
+    local D="$1"
+    if [ ! -d "$D" ] ; then
+        echo "Directory '$D' does not exist, creating..."
+        sudo mkdir -p "$D"
+    fi
+    if [ ! -w "$D" ] ; then
+        echo "Directory '$D' is not writable by $USER, chgrp..."
+        sudo chgrp -R staff "$D"
+        sudo chmod 775 "$D"
+    fi
+    if [ ! -d "$D" ] || [ ! -w "$D" ] ; then
+        echo "Failed to create writable directory '$D', aborting"
+        exit 1
+    fi
+}
+
+if [ "$ACTION" != "" ] ; then
+    if [ "$NO_CLEANUP" = "1" ] ; then
+        mkdir -p $TMPD
+        echo "No-cleanup set: TMPD=$TMPD"
+    fi
+    ensure_directory $OPT_ROOT
+    ensure_directory $ARCH_ROOT
+    $ACTION
+fi
+
+#build_clang llvmorg-13-init    13.0.0
+#build_clang llvmorg-12.0.0     12.0.0
 #build_clang llvmorg-11.1.0     11.1.0
 #build_clang llvmorg-11.0.1     11.0.1
-#build_gcc 10.2.0
+#build_gcc 11.2.0
 #build_valgrind 3.14.0
 
 #build_boost 
