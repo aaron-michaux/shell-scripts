@@ -181,6 +181,14 @@ build_gcc()
          --with-gcc-major-version-only
     $TIMECMD nice make -j$NPROC 2>$SRCD/build/stderr.text | tee $SRCD/build/stdout.text
     make install | tee -a $SRCD/build/stdout.text
+
+    if [ "$OSX" = "0" ] ; then
+        # Install symlinks to /usr/local
+        sudo mkdir -p /usr/local/lib/gcc
+        sudo mkdir -p /usr/local/include/c++
+        ln -s "$PREFIX/lib/gcc/${MAJOR_VERSION}" "/usr/local/lib/gcc/${MAJOR_VERSION}"
+        ln -s "$PREFIX/include/c++/${MAJOR_VERSION}" "/usr/local/include/c++/${MAJOR_VERSION}"
+    fi
 }
 
 # ------------------------------------------------------------------------- wasm
