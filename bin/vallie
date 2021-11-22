@@ -1,0 +1,5 @@
+#!/bin/bash
+
+valgrind --tool=memcheck --leak-check=full --track-origins=yes --verbose --log-file=valgrind.log --gen-suppressions=all "$@"
+
+
