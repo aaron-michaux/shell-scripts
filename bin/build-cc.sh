@@ -176,7 +176,6 @@ build_gcc()
          --enable-languages=c,c++,objc,obj-c++,fortran,d \
          --disable-multilib \
          --program-suffix=-${MAJOR_VERSION} \
-         --libdir=${PREFIX}/lib/gcc/11 \
          --enable-checking=release \
          --with-gcc-major-version-only
     $TIMECMD nice make -j$NPROC 2>$SRCD/build/stderr.text | tee $SRCD/build/stdout.text
@@ -186,8 +185,8 @@ build_gcc()
         # Install symlinks to /usr/local
         sudo mkdir -p /usr/local/lib/gcc
         sudo mkdir -p /usr/local/include/c++
-        ln -s "$PREFIX/lib/gcc/${MAJOR_VERSION}" "/usr/local/lib/gcc/${MAJOR_VERSION}"
-        ln -s "$PREFIX/include/c++/${MAJOR_VERSION}" "/usr/local/include/c++/${MAJOR_VERSION}"
+        #ln -s "$PREFIX/lib/gcc/${MAJOR_VERSION}" "/usr/local/lib/gcc/${MAJOR_VERSION}"
+        #ln -s "$PREFIX/include/c++/${MAJOR_VERSION}" "/usr/local/include/c++/${MAJOR_VERSION}"
     fi
 }
 
