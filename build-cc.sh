@@ -143,9 +143,6 @@ build_clang()
          -LLVM_ENABLE_LTO=thin \
          -LLVM_USE_LINKER=$LINKER \
          -DLLVM_BUILD_LLVM_DYLIB=YES \
-         -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
-         -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
-         -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
          -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
          -DCURSES_INCLUDE_PATH=/usr/include/ \
          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX} \
