@@ -1,0 +1,41 @@
+#!/bin/bash
+
+(( $# != 1 )) && echo "Usage: $(basename $0) FILENAME" && exit 1
+
+FILE="$1"
+
+[ ! -f "$FILE" ] && echo "Could not find file '$FILE', Aborting." && exit 1
+
+EXTENSION="$(echo "$FILE" | awk -F . '{if (NF>1) { print $NF }}')"
+CMP="cat"
+
+case $EXTENSION in
+    gz)
+        gunzip -dc $FILE | tar -xf -
+	;;
+    bz2)
+	bunzip2 -dc $FILE | tar -xf -
+	;;
+    tgz)
+	gunzip -dc $FILE | tar -xf -
+	;;
+    xz)
+	xz -dc $FILE | tar -xf -
+	;;
+    tar)
+	cat $FILE | tar -xf -
+	;;
+    *)
+	echo "Unknown extension: '$EXTENSION', aborting" 1>&2 && exit 1
+	;;
+esac
+
+#[ "$EXTENSION" = "gz" ] && CMP="gunzip -dc"
+#[ "$EXTENSION" = "bz2" ] && CMP="bunzip2 -dc"
+#$CMP "$FILE" | tar -xf -
+
+exit $?
+
+
+
+
