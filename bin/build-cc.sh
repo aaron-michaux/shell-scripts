@@ -150,6 +150,17 @@ EOF
 
 # -------------------------------------------------------------------------- gcc
 
+ensure_link()
+{
+    local SOURCE="$1"
+    local DEST="$2"
+
+    if [ ! -e "$SOURCE" ] ; then echo "File/directory not found '$SOURCE'" ; exit 1 ; fi
+    sudo mkdir -p "$(dirname "$DEST")"
+    sudo rm -f "$DEST"
+    sudo ln -s "$SOURCE" "$DEST"
+}
+
 build_gcc()
 {
     local TAG="$1"
@@ -183,10 +194,14 @@ build_gcc()
 
     if [ "$OSX" = "0" ] ; then
         # Install symlinks to /usr/local
-        sudo mkdir -p /usr/local/lib/gcc
-        sudo mkdir -p /usr/local/include/c++
-        #ln -s "$PREFIX/lib/gcc/${MAJOR_VERSION}" "/usr/local/lib/gcc/${MAJOR_VERSION}"
-        #ln -s "$PREFIX/include/c++/${MAJOR_VERSION}" "/usr/local/include/c++/${MAJOR_VERSION}"
+        ensure_link "$PREFIX/bin/gcc-${MAJOR_VERSION}" /usr/local/bin/gcc-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/g++-${MAJOR_VERSION}" /usr/local/bin/g++-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcc-ranlib-${MAJOR_VERSION}" /usr/local/bin/gcc-ranlib-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcc-ar-${MAJOR_VERSION}" /usr/local/bin/gcc-ar-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcc-nm-${MAJOR_VERSION}" /usr/local/bin/gcc-nm-${MAJOR_VERSION}
+        ensure_link "$PREFIX/include/c++/${MAJOR_VERSION}" /usr/local/include/c++/${MAJOR_VERSION}
+        ensure_link "$PREFIX/lib64" /usr/local/lib/gcc/${MAJOR_VERSION}
+        ensure_link "$PREFIX/lib/gcc" /usr/local/lib/gcc/${MAJOR_VERSION}/gcc
     fi
 }
 
