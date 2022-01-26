@@ -90,63 +90,60 @@ EOF
 
 # ------------------------------------------------------------------------ clang
 
-# build_clang()
-# {
-#     local CLANG_V="$1"
-#     local TAG="$2"
-#     local LLVM_DIR="llvm"
+build_llvm()
+{
+    local CLANG_V="$1"
+    local TAG="$2"
+    local LLVM_DIR="llvm"
 
-#     local SRC_D=$TMPD/$LLVM_DIR
-#     local BUILD_D="$TMPD/build-llvm-${TAG}"
-
-#     local INSTALL_PREFIX="${OPT_ROOT}/clang-${TAG}"
+    local SRC_D="$TMPD/$LLVM_DIR"
+    local BUILD_D="$TMPD/build-llvm-${TAG}"
+    local INSTALL_PREFIX="${OPT_ROOT}/clang-${TAG}"
     
-#     rm -rf "$BUILD_D"
-#     mkdir -p "$SRC_D"
-#     mkdir -p "$BUILD_D"
+    rm -rf "$BUILD_D"
+    mkdir -p "$SRC_D"
+    mkdir -p "$BUILD_D"
 
-#     cd "$SRC_D"
+    cd "$SRC_D"
 
-#     ! [ -d "llvm-project" ] &&
-#         git clone https://github.com/llvm/llvm-project.git
-#     cd llvm-project
-    
-#     git checkout "$CLANG_V"
+    ! [ -d "llvm-project" ] && git clone https://github.com/llvm/llvm-project.git
+    cd llvm-project
+    git pull   
+    git checkout "llvmorg-${CLANG_V}"
 
-#     cd "$BUILD_D"
+    cd "$BUILD_D"
 
-#     # NOTE, to build lldb, may need to specify the python3
-#     #       variables below, and something else for CURSES
-#     # -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
-#     # -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
-#     # -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
-#     # -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
-#     # -DCURSES_INCLUDE_PATH=/usr/include/ \
+    # NOTE, to build lldb, may need to specify the python3
+    #       variables below, and something else for CURSES
+    # -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
+    # -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
+    # -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
+    # -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
+    # -DCURSES_INCLUDE_PATH=/usr/include/ \
 
-#     nice ionice -c3 cmake -G "Ninja" \
-#          -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly;lldb" \
-#          -DCMAKE_BUILD_TYPE=release \
-#          -DCMAKE_C_COMPILER=$CC_COMPILER \
-#          -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
-#          -DLLVM_ENABLE_ASSERTIONS=Off \
-#          -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=Yes \
-#          -DLIBCXX_ENABLE_SHARED=YES \
-#          -DLIBCXX_ENABLE_STATIC=YES \
-#          -DLIBCXX_ENABLE_FILESYSTEM=YES \
-#          -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=YES \
-#          -LLVM_ENABLE_LTO=thin \
-#          -LLVM_USE_LINKER=$LINKER \
-#          -DLLVM_BUILD_LLVM_DYLIB=YES \
-#          -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.a \
-#          -DCURSES_INCLUDE_PATH=/usr/include/ \
-#          -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX} \
-#          $SRC_D/llvm-project/llvm
+    nice ionice -c3 cmake -G "Unix Makefiles" \
+         -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly;lldb" \
+         -DCMAKE_BUILD_TYPE=release \
+         -DCMAKE_C_COMPILER=$CC_COMPILER \
+         -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
+         -DLLVM_ENABLE_ASSERTIONS=Off \
+         -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=Yes \
+         -DLIBCXX_ENABLE_SHARED=YES \
+         -DLIBCXX_ENABLE_STATIC=YES \
+         -DLIBCXX_ENABLE_FILESYSTEM=YES \
+         -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=YES \
+         -LLVM_ENABLE_LTO=thin \
+         -LLVM_USE_LINKER=$LINKER \
+         -DLLVM_BUILD_LLVM_DYLIB=YES \
+         -DCURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.so \
+         -DCURSES_INCLUDE_PATH=/usr/include/ \
+         -DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_PREFIX} \
+         $SRC_D/llvm-project/llvm
 
-#     /usr/bin/time -v nice ionice -c3 ninja \
-#                   2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
-#     sudo ninja install | tee -a $BUILD_D/stdout.text
-#     cat $BUILD_D/stderr.text   
-# }
+    $TIMECMD nice make -j$NPROC 2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
+    sudo make install 2>>$BUILD_D/stderr.text | tee -a $BUILD_D/stdout.text
+    cat $BUILD_D/stderr.text   
+}
 
 # -------------------------------------------------------------------------- gcc
 
@@ -258,7 +255,7 @@ show_help()
 
       gcc-x.y.z
       valgrind-x.y.z
-
+      llvm-x.y.z
 
 EOF
 }
@@ -273,6 +270,7 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "--cleanup" ] && NO_CLEANUP=0
     [ "$ARG" = "--no-cleanup" ] && NO_CLEANUP=1
     [ "${ARG:0:3}" = "gcc" ] && ACTION="build_gcc ${ARG:4}"
+    [ "${ARG:0:4}" = "llvm" ] && ACTION="build_llvm ${ARG:5}"
 done
 
 if [ "$NO_CLEANUP" = "1" ] ; then
