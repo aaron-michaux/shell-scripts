@@ -141,7 +141,7 @@ prefix_to_path()
     done
 }
 
-prefix_to_path "$HOME/.local/bin" "$HOME/bin" "$HOME/Bin" "$HOME/Projects/shell-scripts/bin" "/opt/perforce"
+prefix_to_path "$HOME/.local/bin" "$HOME/bin" "$HOME/Bin" "$HOME/Projects/shell-scripts/bin" "$HOME/Projects/shell-scripts/remote-bin" "$HOME/Projects/shell-scripts/dev-bin" 
 
 export REMOTE_KESTREL_GIT_DIR="$HOME/sync/SWG_NGP_kestrel"
 
