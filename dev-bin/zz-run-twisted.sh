@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-PPWD="$(cd "$(dirname "$0")" ; pwd -P)"
-cd "$PPWD"
+THIS_SCRIPT="$(cd "$(dirname "$0")" ; pwd)/$(basename "$0")"
+LOCAL_KESTREL="$HOME/Development/SWG_NGP_kestrel"
+REMOTE_KESTREL="/home/BRCMLTD/am894222/sync/SWG_NGP_kestrel"
 
 TMPD="$(mktemp -d /tmp/$(basename $0).XXXXXX)"
 trap cleanup EXIT
@@ -106,17 +107,18 @@ fi
 HOSTNAME=$(hostname)
 if [ "${HOSTNAME:0:7}" != "wac-usr" ] ; then
     kestrel-sync.sh
-    ssh -t dev ". \$HOME/.bashrc ; \$KESTREL_GIT_DIR/zz-run.sh $ALL_ARGS" \
+    ssh -t dev ". \$HOME/.bashrc ; \$HOME/sync/SWG_NGP_kestrel/zz-run-twisted.sh $ALL_ARGS" \
         && RET=0 || RET=1
 
     # If we did a "style fix" then copy back the results
     if [ "$RET" = "0" ] && [ "$STYLE_FIX" = "true" ] ; then
         rsync -azvc                                                 \
               "dev:$REMOTE_KESTREL_GIT_DIR/cfs/test/twisted_tests/" \
-              "$PPWD/cfs/test/twisted_tests"
+              "$LOCAL_KESTREL/cfs/test/twisted_tests"
     fi
+
+    # Grab the logs
     if [ "$THESE_TESTS" = "true" ] ; then
-        
         rsync -azvcq --no-times dev:$LOG_DIR/ $LOG_DIR --delete-after
     fi   
     exit "$RET"
@@ -126,10 +128,10 @@ fi
 env | grep -Eq '^USER=' && HAS_USER=true || HAS_USER=false
 if [ "$HAS_USER" = true ] ; then
     export KESTREL_GIT_DIR="$HOME/sync/SWG_NGP_kestrel"
-    cd "$PPWD"
+    cd "$KESTREL_GIT_DIR"
     git submodule update --init --recursive
     echo
-    echo "executing:     kb exec $(basename "$0") $ALL_ARGS"
+    echo "executing:     kb exec ./$(basename "$0") $ALL_ARGS"
     echo
     if [ "$REBOOT_KB" = "true" ] ; then
         kb stop
@@ -147,8 +149,8 @@ fi
 
 # -------------------------------------------------------------------------------------- Environment
 # The kestrel project; should be the same as KESTREL_GIT_DIR (if set)
-cd "$PPWD"
-SCRIPTS_DIR="$PPWD/cfs/test/scripts"
+cd "$REMOTE_KESTREL"
+SCRIPTS_DIR="$REMOTE_KESTREL/cfs/test/scripts"
 
 # ------------------------------------------------------------------------------------------ Action!
 
@@ -278,7 +280,7 @@ cat <<EOF
 
 # twisted_tests.e2e.07_01_inactivity_timeout_test
 
-twisted_tests.e2e.08_01_midflows_test
+# twisted_tests.e2e.08_01_midflows_test
 
 # twisted_tests.e2e.09_01_needs_dpi_at_request_test           
 # twisted_tests.e2e.09_02_does_not_need_dpi_at_request_test   
@@ -286,7 +288,7 @@ twisted_tests.e2e.08_01_midflows_test
 # twisted_tests.e2e.09_04_ci_retry_test                       
 # twisted_tests.e2e.09_05_ci_retry_at_nc_failure_test         
 
-# twisted_tests.e2e.10_other_protocol_test
+twisted_tests.e2e.10_other_protocol_test
 EOF
 }
 

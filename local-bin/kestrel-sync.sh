@@ -51,6 +51,7 @@ done
 
 sync_files()
 {
+    cp "$(which zz-run-twisted.sh)" "$SRCD/"
     rsync -azvcth --no-times             \
           --exclude "bazel*"             \
           --exclude ".git"               \
@@ -95,7 +96,8 @@ do_sync()
 files()
 {
     echo "$SRCD/Makefile"
-    [ -f "$SRCD/zz-run.sh" ] && echo "$SRCD/zz-run.sh"
+    cp "$(which zz-run-twisted.sh)" "$SRCD/"
+    echo "$SRCD/zz-run-twisted.sh"
     find "$SRCD/cfs/test" "$SRCD/test" -type f | grep -v -e "#" | sort
 }
 

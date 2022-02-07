@@ -34,10 +34,13 @@ while true; do
 done
 
 SRCD="$LOCALD"
-DSTD="$REMOTED"            
+DSTD="$REMOTED"
+EXTRA_EXCLUDES="--exclude SWG_NGP_grpc_cple_service --exclude WSS_MDS_API --exclude WSS-CMS-GRPC-API"
+
 if [ "$REVERSE" = "true" ] ; then
     SRCD="$REMOTED"
     DSTD="$LOCALD"
+    EXTRA_EXCLUDES=""
 fi
 
 sync_files()
@@ -50,10 +53,10 @@ sync_files()
           --exclude "*/.github"                   \
           --exclude "*/__pycache__"               \
           --exclude "*.DS_Store"                  \
-          --exclude "SWG_NGP_grpc_cple_service"   \
-          --exclude "WSS_MDS_API"                 \
-          --exclude "WSS-CMS-GRPC-API"            \
+          --exclude "zz-run.sh"                   \
+          $EXTRA_EXCLUDES                         \
           --exclude "test/BUILD"                  \
+          --exclude "NOTES.md"                    \
           $SRCD/ $DSTD                            \
           --delete-after
 }
