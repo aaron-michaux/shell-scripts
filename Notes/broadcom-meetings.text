@@ -1,0 +1,535 @@
+
+Mazen: agile lead CPLE
+Shawn: technical lead CPLE
+
+I'm on CFS team
+Tehnical lead | Birendra (architecture, proxy side), Roelof (architecture, SSL side and CFS packet toolkit)
+
+Broadcom peoplefinder
+
+Users are added through "PDL": google-groups. There's service and person accounts.
+
+ + Tyler Szepesi owns saasdev-sed-was-proxysg, reports to Kevin Goertz
+
+Wendy Liau manages WSS, including GCP
+ + Mike Varela (manager) handles infrastructure pieces
+ + Manish Parmer -- owns saasdev-sed-was-hp (wss-dev integration environment for wss)
+
+David Stott manages SWG (Secure Web Gateway)
+Gary Tomic: Chief Architect
+ + Birendra
+ + Roelof
+ + Israel
+ + Oommen | Aaron, Mladen, Nour, Nik, Thomas, Tal
+
+# ------------------------------------------------------------------- 2021-11-16
+
+Shawn Satchell, team leader
+Yao Ding (two weeks ago) policy team
+Mark McConnaughay (two weeks ago) SG
+Rehan Shamsi
+
+MVP -- April next year
+Firewall Service being replaced with Broadcom solution
+
+CFS: overloaded term (three different things)
+ | Cloud firewall service
+ | Cloud firewall runs (kestrel binary)
+
+Customers === "tennants"
+Concentrator gives "NAT"ed IP
+
++ Clients uses the WSS Portal to make firewall rules
++ Rules are pushed into the CMS (content management system) service
++ The CPLE Service delivers verdicts on letting traffic through
+
+Access to "perforce"
+SED/SWG_NGP_cpie
+
+Add member to SWG_cpie_developers
+Add myself to SED
+Access to the "Scorpius Build Tool" is in "sandbox"
+Access to //shared and //scorpius and //sandbox
+
+3 tickets; github, perforce, dev-vm,
+
+I'm not on the JIRA board
+
+Pushing the logs to the GCP "stack driver" (google's syslog server)
++ Mladen Milosevic working on this
++ Will need GCP credentials
+CFS-vm (a docker container)
++ Add a component into the vm that manages the
+
+# Kestrel:
+Gary's team focuses on the Kestrel products
+Based on "Envoy" proxy
+Developed by 'https://www.envoyproxy.io/'
+Kestrel - NGP (nextgen proxy)
+Kestrel - CFS (cloud firewall solution)
+Kestrel - (?) NAT proxy
+CPLE: the policy engine
++ MDS: meta-data service (microservice)
++ CMS: content-management system (fetches policy)
+
+Nick to help with build process.
+
++ Look at perforce permission
+
+Build toos in github
+Docker
+
+Buildtools
+And add to path
+kb shell
+bazel build
+
+# Building kestrel
+
+## Get the REPOs
+mkdir $HOME/Development
+cd $HOME/Development
+git clone git@github.gwd.broadcom.net:SED/SWG_NGP_kestrel.git
+git clone git@github.gwd.broadcom.net:SED/SWG_NGP_build_tools.git
+git submodule update --init --recursive
+
+git reset --hard HEAD
+git clean -f
+
+git log --oneline --graph --all
+
+## This needs to be in ~/.bashrc if it doesn't already exist
+echo "export PATH=\"\$HOME/Development/SWG_NGP_build_tools/build_container/bin:\$PATH\"" >> "$HOME/.bashrc"
+echo "$HOME/Development" >> "$HOME/.bashrc"
+
+## This starts a docker container
+kb shell
+
+## Builds kestrel
+bazel build -c opt kestrel_archive
+bazel build -c opt kestrel_cfs_archive
+
+
+# install sg
+p4 print -q //sandbox/team_monitoring/ci/docker/sg-build/centos72/dev/resources/update | bash
+# Make sure to add to path: $HOME/.local/bin
+
+#
+p4 login -s
+p4 sync //scorpius/project/cple/sg_cple1/...
+p4 sync //shared/...
+p4 sync //scorpius/toolchain/...
+p4 sync //scorpius/project/cple/toolchain 
+
+# stack (logging)
+google cloud project
+
+# --------------------------------------------------------- Stack Driver Project
++ Thomas does the testing
++ We will move to Kubernetes, which is an orchestrator
+
+https://github.gwd.broadcom.net/mm734583/cfs-terraform
+Look at end-to-end tests for CFS: uses docker's network
+
+Terraform:
+1. Download the CLI from here: https://www.terraform.io
+2. Move executable to /usr/local/bin
+3. go to terraform github project
+4. run 'terraform init' (the json file must be present) (first time only) (run 'terraform apply' is the json file is updated)
+4a. create a terraform workspace:
+   terraform workspace new amichaux
+   terraform workspace show    | which workspace you're in right now
+   terraform workspace list    | lists all workspaces
+5. to orchestrate: run 'terraform apply -var SERVICE_ACCOUNT_KEY=<json filename>'
+   NOTE: to see IP addresses again, run: 'terraform refresh -var SERVICE_ACCOUNT_KEY=<json filename>'
+   NOTE: to destroy VMs run: 'terraform destroy -var ...'
+6. autossh admin123@<cfs_instance_address> (password same as username). This is how you log into the 'cfs_instance_address'
+
+Edit "/containers/cple/environment_variables/cple.env"
+host at the end to 'localhost'
+you can change the binary... look for KESTREL_BINARY
+
+gcloud init
+USE us-central1-c as the default
+
+gcloud compute ssh amichaux-client-instance
+gcloud compute ssh amichaux-server-instance
+
+to restart container
+orchestrate down
+orchestrate up
+
+# to change log leve
+curl -X POST localhost:8081/logging?level=debug
+
+# on the server
+nc -l 8888
+# copy the ens5 ip address: I see 10.128.2.4
+
+# To remove stale key from known-hosts
+ssh-keygen -R <ip-address/hostname>
+
+# "Stack"
+Operations | Logging
+
+Get familiar with the CFS container
+/containers (on the CFS instance)
+
+1. Install "gcloud sdk" onto my mac
+2. Run setup
+3. Wizard
+After 4pm.
+
+Q: we'll need to use oauth2, to access the google-cloud logging API... where do we store credentials/configuration? Talk Mladen | Maneash Palma 
+Q: are we pushing "envoy" logs? (ie., are all logs pushed through envoy) | container app logs, kesterl CFS, CPLE as well.
+Q: we can create our own custom spdlog sink, which can be attached at startedup. There's threading issues if we want to enable/disable after startup, which can be handled, but will require more engineering.
+
+This is the command that I used to create the bucket
+```bash
+gcloud logging sinks create amichaux-test-sink logging.googleapis.com/projects/saasdev-sed-wss-proxysg/locations/global/buckets/amichaux-test-bucket
+gcloud logging write amichaux-test-sink '{ "hello": "world" }'
+```
+
+Required permissions
+oauthconfig.testusers.get
+oauthconfig.verification.get
+clientauthconfig.clients.list
+clientauthconfig.clients.listWithSecrets
+iam.serviceAccounts.list
+
+Accessories: https://broadcomprd.service-now.com/sp?id=sc_category
+New Mac request # RITM0362008
+
+Coverity   | static code analysis | https://coverity.bde.broadcom.net/login/login.htm
+Blackduck  | packages, licenses
+Qualys     | runtime tests
+
+# ------------------------------------------------------------------- 2021-11-22
+@Oommen
+New Task: (from Birendra -- the designer), Task was being done by Tal
+ * End-to-end tests for CFS... look at envoy's testcases, used for NGP
+ * https://bsg-confluence.broadcom.net/display/SWG/CFS+CPLE+Handler+e2e+Test+Plan
+ * CPLE is mocked
+ * Traffic generation framework "Twisted" is ready -- Initially Nik, then Mladen
+ * Figure out which pieces are easier to write, this is where I'll start
+ * Some testcases are already written... look for missing testcases
+ * Meet with Tal Nordan... to see where to pick up
+ * Our Jenkins server for building CFS: https://ngp-jenkins.wac.broadcom.net/
+   + Kestrel_Nightly_Develop_Build
+
+# ------------------------------------------------------------------- 2021-11-22
+@Oommen, @Tal, @Mladen, @Birendra
+ * End-to-end tests for CFS
+ * REPO: SWG_NGP_kestrel
+ * in SB shell: `make twisted_tests` | With firewall disabled: see README under test-end-to-end
+ * look at subdirectory under `SWG_NGP_kestrel/cfs`
+ * there's a bunch of scripts in `test/scripts`
+ * tests are in `test/twisted_tests/test/e2e/...`
+ * There's a confluence page (see Oommen meeting above) which tells you what's being testing
+ * there may be some duplicated code because of lack of symlinks
+ * Where are the public gRPC api description for CFS and CPLE
+ * Scope:
+   + Look at Confluence: CFS CPLE Handler and Pkt Toolkit Interactions, and the test plane
+   + Start with the above Confluence page
+ * Look at the Arcitectual Diagram
+ * https://bsg-confluence.broadcom.net/display/SWG/CFS+CPLE+Handler+e2e+Test+Plan
+ * https://bsg-confluence.broadcom.net/display/SWG/CFS+CPLE+Handler+and+Pkt.+Toolkit+Interactions
+ * https://bsg-confluence.broadcom.net/display/SWG/Architectural+Diagram
+
+# Pulling the docker container
+docker login ngp-docker-release-local.artifactory-ren.broadcom.net
+docker pull ngp-docker-release-local.artifactory-ren.broadcom.net/ngp/base_images/kestrel_base
+
+# Stop/start the firewall
+systemctl stop firewalld
+systemctl disable firewalld
+systemctl restart docker
+
+docker cp 'kestrel_cfs_e2e_test_container:/tmp/saved.*.text' /tmp/
+
+# ------------------------------------------------------------------- 2021-11-23
+@amichaux private study
+ * What is managed/unmanaged
+ * What are the bypass/proxy routing decisions
+ * What are entitled/unentitled flows?
+ * What is the bypass/passthrough interface
+ * The verdict-ttl, is that seconds? number of packets??
+ * What is "MVP" on Question 8 (https://bsg-confluence.broadcom.net/display/SWG/CFS+CPLE+Handler+and+Pkt.+Toolkit+Interactions)
+ * What is "DPI": Deep Packet Inspection. (Question 13/14)
+
+# ------------------------------------------------------------------- 2021-11-24
+@all hands
+Clone my 'statistics' JIRA task
+
+JIRA tickets: Major fields are
+ * Feature Link,
+ * Team = Kestrel Team,
+ * Sprint (if we know on which Sprint the story is taken up)
+
+# ------------------------------------------------------------------- 2021-11-30
+
+ * gRPC API for CPLE server:
+    + https://bsg-confluence.broadcom.net/pages/viewpage.action?spaceKey=SWG&title=CFS+CPLE+Handler+and+Pkt.+Toolkit+Interactions
+ * To see "fail-safe" stats:
+    + https://www.envoyproxy.io/docs/envoy/latest/operations/admin
+    + The port is configured in: cfs/bootstrap_files/configs/kestrel_cfs_default.yaml
+ * localhost:8081/stats/prometheus
+    Look for: envoy_cple_flow_event_handler_total_failed_open_occurrences
+ * This is twisted (doh!)
+    https://twistedmatrix.com/documents/current/api/twisted.python.html
+
+# ------------------------------------------------------------------- 2021-12-01
+@Oommen, 1-1
+ * Create channel to communicate on CPLE mock services stuff
+   - Sync channel with Tal, Birendra, Oommen
+ * Why two CPLE mock services? (Get back to Oommen with the correct answer.)
+   - ./cfs/test/twisted_tests/test/e2e/mocks/policy/cple/cfs/server.py
+   - ./test/e2e/mocks/policy/cple/cfs/server.py
+   - *Discuss in meeting* Berindra and Tal, start a 3-way chat. + Mladen and Oommen
+   - *Discuss* Do we create a ticket to fix the fail-open
+ * cple mock server test
+   - ./test/e2e/policy/cple/cfs/server_test.py
+ * There's more e2e tests on Tal's plate. Look to see what else is on the webpage.
+
+# ------------------------------------------------------------------- 2021-12-02
+@Tests/twisted tests
+@Tal, @Birendra, @Nik
+ * We have duplicated directories
+   - Do we want to have access outside the twisted directory (?)
+     + Run tests with Basil
+     + We have shared unit tests infrastructure between web-isolation tests
+ * Every under test/e2e, we my have a "twisted test"
+   - Ensure math mapping is correct... we may not need environment variables.
+ * Get "bazel test" command to ensure the existing e2e tests run the same
+ * Mock CPLE service is duplicate
+ * twisted tests are never used outside the twisted container
+   - Look for other duplicated code
+   - This is probably a mistake: ./test/e2e/policy/cple/cfs/cfs_tcp_test_case.py
+ * Reach out to Tal/Nik for help.
+ * To run a specific test
+   - bazel test //test/e2e/e2e:websocket_explicit_test
+ * the name of the test (target) can be found in the corresponding BUILD file
+ * you can also run everything inside a folder
+   - bazel test //test/e2e/...
+
+
+# ------------------------------------------------------------------- 2021-11-22
+@Commit Notes
+The docker "build context" is everything from the current directory. This is huge - half a gig - and bogs down docker. The command is lighting fast if you first cd into the correct directory.
+
+ * Greate PR for current changes, with (observer) Birendra as review, and Tal & Mladen.
+ * PDE (Program Development Excellence -- test coverage at different levels from the system, Nik is focusing on.)
+ * CPLE will have legacy stuff removed and SASE2.0 is going to start.
+
+# Failed test
+//test/e2e:connect_post_block_limit_test
+
+# Timeouts on 
+@Aaron Michaux if you also consider setting timeouts for the tests themselves, it looks like Twisted tests can be configured with per-test timeout, according to the docs here: https://twistedmatrix.com/documents/8.2.0/api/twisted.trial.unittest.TestCase.html
+I am pretty sure that for now, our tests use the default test timeout, and rely on Kestrel CFS to enforce connection timeouts
+
+# QUESTION: what is 0.0.0.0, and what does it mean to listen on it.
+# QUESTION: how to terminate a UDP flow on kestrel... what does that even mean?
+# TODO: Book meeting with Tal+Mladen
+
+from twisted.internet import task, reactor
+d = task.deferLater(reactor, 0.1, lambda: print('foo'))  # creates and schedules a Deferred
+d.addCallback(lambda x: reactor.stop())  # add a callback to stop when completed
+reactor.run()  # run the event loop
+
+# ------------------------------------------------------------------- 2021-12-17
+@Birendra, @Mladen, @Oommen, ...
+TOPIC: CFS-729 cfs test: statistics
+Birendra: priorities, increase UDP coverage
+Oommen: agrees in priorities
+Oommen: Tal's plate is full
+https://jira.bde.broadcom.net/secure/StructureBoard.jspa?s=189#
+
+Mladen: method to change kestrel config for an e2e test.
+Mladen: for stats tests, there will be noise on the network.
+
+Looks at the confluence: "CFS+CPLE+Handler+e2e+Test+Plan"
+https://bsg-confluence.broadcom.net/display/SWG/CPLE+Flow+Event+Handler+Statistics
+Top six stats to start working on:
+ * cple.flow.event.handler.total_allow_verdicts              11110112
+ * cple.flow.event.handler.total_drop_verdicts               00010000
+ * cple.flow.event.handler.total_bypass_routes               01000000
+ * cple.flow.event.handler.total_proxy_routes                10100001
+ * cple.flow.event.handler.total_unmanaged_flows             00000000
+ * cple.flow.event.handler.total_failed_open_occurrences     00000000
+
+# ----------------------------------------------------------- make a JIRA ticket
+
+JIRA: set the team to "kestrel"
+ * CFS fail-open "Bug/test"
+     policy/cple/cfs/flow_event_handler.cc
+     policy/cple/cfs/flow_event_handler.h
+ * Adding UDP functionality to 2.1 and 2.2
+ * Doing the "unmanaged flows" tests.
+
+# JIRA How to create a ticket
+Project Cloud Firewall Service (CFS)
+Team: waterloo: kestreal team
+Story points (1 story point is 1d)
+Assign to self
+ReleaseMgmt currnet spint "9.4"
+Make sure you create them as Stories (More => Move => to story!)
+Set the parent feature to "CFS e2e testing"
+
+# JIRA: noise in the CFS statistics....
+Why are there additional allow verdicts
+May need a ticket.
+It could be:
++ Stuff leaking between tests
++ A bug in Kestrel...
+Look at the CPLE mock server's logs
+GRPC request log... gets you JSON with all the history... will have info
+
+# ---------------------------------------------------------------------
+
+# UDP(53) doesn't get evaluated!, and arrives on `egress proxy`
+# UDP(5000) does get evaulated, and arrives on `egress proxy` (correct)
+
+# General questiosn
++ The CPLE server sometimes uses absolute timestamps... is there a solution?
++ How to get dynamic route information from Kestrel.
+
+# Stats questions
++ Should a "fail open" be listed as an allow verdict?
++ Should a "fail open" flow be unmanaged?
++ Should the "total bypass/total proxy" routes change for fail-open (it doesn't)
++ Should the "total bypass/total proxy" change for unmanaged? (it doesn't)
+
+# 3.1,
+The CPLE request log received "StartTransactionAndEvaluateFirewallCheckpoint"; however,
+the testing plan says it should be "StartTransactionAndEvaluateNewConnection".
+
+(1) ERRORS
+THIS CAUSES AN ERROR, once unmanaged, it looks like the existing "unmanaged" flow is reused:
+    docker exec -it kestrel_cfs_e2e_test_container trial               \
+           twisted_tests.e2e.03_01_and_02_tcp_unmanaged_flows_test     \
+           twisted_tests.e2e.01_01_02_tcp_allow_bypass_test            \
+
+If you re-run quickly, the unmanaged flow is just reused.
+
+# --------------------------------------------------------------------- CfsStats Stuff
+
+(1) Should a fail-open flow also increment that "unmanaged flow" counter (it currently does not)
+It should not, they are orthogonal.
+
+(2) Should the "allowed verdict" increment for a "fail open" (it currently does)
+Yes, that's fine because "fail open" is always "allow" ("OPEN" vs close )
+
+(3) Should the total proxy/bypass route counters be incremented (they currently do not)
+Not at the CPLE handler level currently as that decision comes from the ruleset (in toolkit).
+
+# --------------------------------------------------------------------- The plan going forward
+# @Oommen
+New organization:
+Gary, cheif architect => reports to David Stott
+Kestrel development Kevin => reports to David Stott
+
+Kevin Goedrez
+
+We'll be focusing on:
+(1) e2e-solution of the proxy replacement. Thomas Barray.
+(2) We own CPLE.
+    ~ Policy engine.
+    ~ Policy service. We work on this.
+    Will run on GKE (Google-cloud, Kubenties)
+Proxy-SG is the central piece of WSS
+When we replace Proxy-SG: proxy=>Kestrel, decision making path to CPLE.
+
+Dataports in WSS with a Kestrel based proxy with a cluster of CPLE services.
+(So that we can scale up and down.)
+
+Muliple PIs worth of work. 1 PI is 3 months.
+
+We'll be moving on in March.
+
+# ------------------------------------------------------------------------- pretty-format-dict
+
+def pretty_format_dict(x: dict):
+    import json
+    return json.dumps(x, indent=4)
+
+# -----------------------------------------------------------------------------
+
+Basic testcase: 4.2
+ - Have tcp and upd tests.
+ - `run_test` logic is the same for both.
+ - testname gives the locations of config/stats
+ - The banner gives feedback.
+ - Start mock CPLE. You can specify a custom test configruation (see test 3.x)
+ - `profile` sends and receives TCP/UDP traffic, and collects data that is
+   asserted upon later. You can write your own profile; however, the provided
+   Tcp and Udp profiles are flexible enough for every test so far.
+   @see CfsTcpTrafficProfile/CfsUdpTrafficProfile
+ - `utils.execute_profile` creates a deferred that executes the profile,
+   and then runs zero or more assertion callbacks after the profile ends.
+   (i.e., the conneciton closes/errors). Keyword arguments are passed to
+   the traffic runner.
+ - Go over `e2e_assertions`
+ - Go over stats-delta
+
+Testcase: 5.2
+ - stuff in parallel
+ - deferred list
+
+Then Gottchas
+ - No blocking calls.
+ - Use `make_deferred_from_blocking_call`
+ 
+# --------------------------------------------------------------------------------------------------
+@Oommen
+
+ * Onto CPLE!
+ * Start with bugs.
+ * Shawn will help ramp up.
+ * Need e2e type testing on the CPLE side of things.
+   - Simulate the CFS/packet toolkit side, and test CPLE!
+   
+# ------------------------------------------------------------------------------------ CPLE Standup!
+@Oommen
+
+# --------------------------------------------------------------------------------------- 2022-01-25
+@Shawn Satchell
+Ramp up.
+ * Perforce
+   - `p4v` ... with NoMachine... gui application
+   - From the command-line: checkout
+   - Merge using the GUI.
+ * Python e2e tests make gRPC calls that call the service handler
+   - There's a video that talks about e2e tests on the CPLE page.
+   - There's one smoke test that does gRPC calls
+ * What is "MDS"? (Session Information)
+   - What does it mean when MDS is down?
+ * What is "MDM"? 
+ * What is the difference between "expiry" and "pre-expiry" time?
+ * System only knows the NATed IP... but would like to know what
+   the customer thinks the IP is.
+ * "Tenant" versus "Default Tenant"
+ * What is the "jinja template"
+ * Look in the "sg" project to find documentation on setting up and using perforce.
+ * Documenting sequences
+ * Supposed to be in production beginning of March   
+
+# --------------------------------------------------------------------------------------- 2022-01-27
+@rehan
+Perforce "code review request"
+Open P4V
+right-click on change list, to move to a new changelist
+
+Template for INFO on change list
+```
+CPLE-23
+CPLE: Cached sessions not being cleaned up
+
+The activity_check_timer->enableTimer(...) call was "since epoch", when we had to pass in milliseconds.
+
+Dev Tests: make checkin
+```
+
+Right-click: request new swarm review
+
+
