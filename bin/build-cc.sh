@@ -19,11 +19,11 @@ fi
 
 # -------------------------------------------------- ensure subversion installed
 
-# sudo apt-get install -y \
-#      wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
-#      python3-dev python3-pip python3-tk python3-lxml python3-six              \
-#      libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
-#      libgmp-dev libmpfr-dev libmpc-dev libasan6 lld-10 clang-10
+sudo apt-get install -y \
+     wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
+     python3-dev python3-pip python3-tk python3-lxml python3-six              \
+     libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
+     libgmp-dev libmpfr-dev libmpc-dev libasan6 lld-10 clang-10
 
 # ------------------------------------------------------------------ environment
 
@@ -98,7 +98,7 @@ build_llvm()
 
     local SRC_D="$TMPD/$LLVM_DIR"
     local BUILD_D="$TMPD/build-llvm-${TAG}"
-    local INSTALL_PREFIX="${OPT_ROOT}/clang-${TAG}"
+    local INSTALL_PREFIX="${OPT_ROOT}/clang-${CLANG_V}"
     
     rm -rf "$BUILD_D"
     mkdir -p "$SRC_D"
@@ -298,6 +298,7 @@ ensure_directory()
     if [ ! -w "$D" ] ; then
         echo "Directory '$D' is not writable by $USER, chgrp..."
         sudo chgrp -R staff "$D"
+        sudo chgrp -R adm "$D"
         sudo chmod 775 "$D"
     fi
     if [ ! -d "$D" ] || [ ! -w "$D" ] ; then
