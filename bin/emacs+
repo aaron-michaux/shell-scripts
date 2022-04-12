@@ -3,6 +3,7 @@
 EMACS="emacs"
 EMACSCLIENT="emacsclient"
 
+echo "$@" >> /tmp/emacs+.log
 
 if test -n "$1"; then
     $EMACSCLIENT --no-wait "$@" 2> /dev/null || $EMACS "$@" &
