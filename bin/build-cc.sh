@@ -55,11 +55,11 @@ build_boost()
     cd $TMPD
     FILE=boost_${BOOST_VERSION}.tar.gz
     [ ! -f "$FILE" ] \
-        && wget https://dl.bintray.com/boostorg/release/$(echo $BOOST_VERSION | sed 's,_,.,g')/source/boost_${BOOST_VERSION}.tar.gz
+        && wget    https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/$(echo $BOOST_VERSION | sed 's,_,.,g')/source/boost_${BOOST_VERSION}.tar.bz2
 
     [ -d "boost_${BOOST_VERSION}" ] && rm -rf boost_${BOOST_VERSION}
 
-    tar -xf boost_${BOOST_VERSION}.tar.gz
+    tar -xf boost_${BOOST_VERSION}.tar.bz2
     cd boost_${BOOST_VERSION}
     cp tools/build/example/user-config.jam $HOME
 
@@ -108,7 +108,8 @@ build_llvm()
 
     ! [ -d "llvm-project" ] && git clone https://github.com/llvm/llvm-project.git
     cd llvm-project
-    git pull   
+    git checkout main
+    git pull origin main
     git checkout "llvmorg-${CLANG_V}"
 
     cd "$BUILD_D"
@@ -122,7 +123,7 @@ build_llvm()
     # -DCURSES_INCLUDE_PATH=/usr/include/ \
 
     nice ionice -c3 cmake -G "Unix Makefiles" \
-         -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly;lldb" \
+         -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld;polly" \
          -DCMAKE_BUILD_TYPE=release \
          -DCMAKE_C_COMPILER=$CC_COMPILER \
          -DCMAKE_CXX_COMPILER=$CXX_COMPILER \
@@ -191,14 +192,17 @@ build_gcc()
 
     if [ "$OSX" = "0" ] ; then
         # Install symlinks to /usr/local
-        ensure_link "$PREFIX/bin/gcc-${MAJOR_VERSION}" /usr/local/bin/gcc-${MAJOR_VERSION}
-        ensure_link "$PREFIX/bin/g++-${MAJOR_VERSION}" /usr/local/bin/g++-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcc-${MAJOR_VERSION}"        /usr/local/bin/gcc-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/g++-${MAJOR_VERSION}"        /usr/local/bin/g++-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcov-${MAJOR_VERSION}"       /usr/local/bin/gcov-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcov-dump-${MAJOR_VERSION}"  /usr/local/bin/gcov-dump-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcov-tool-${MAJOR_VERSION}"  /usr/local/bin/gcov-tool-${MAJOR_VERSION}
         ensure_link "$PREFIX/bin/gcc-ranlib-${MAJOR_VERSION}" /usr/local/bin/gcc-ranlib-${MAJOR_VERSION}
-        ensure_link "$PREFIX/bin/gcc-ar-${MAJOR_VERSION}" /usr/local/bin/gcc-ar-${MAJOR_VERSION}
-        ensure_link "$PREFIX/bin/gcc-nm-${MAJOR_VERSION}" /usr/local/bin/gcc-nm-${MAJOR_VERSION}
-        ensure_link "$PREFIX/include/c++/${MAJOR_VERSION}" /usr/local/include/c++/${MAJOR_VERSION}
-        ensure_link "$PREFIX/lib64" /usr/local/lib/gcc/${MAJOR_VERSION}
-        ensure_link "$PREFIX/lib/gcc" /usr/local/lib/gcc/${MAJOR_VERSION}/gcc
+        ensure_link "$PREFIX/bin/gcc-ar-${MAJOR_VERSION}"     /usr/local/bin/gcc-ar-${MAJOR_VERSION}
+        ensure_link "$PREFIX/bin/gcc-nm-${MAJOR_VERSION}"     /usr/local/bin/gcc-nm-${MAJOR_VERSION}
+        ensure_link "$PREFIX/include/c++/${MAJOR_VERSION}"    /usr/local/include/c++/${MAJOR_VERSION}
+        ensure_link "$PREFIX/lib64"                           /usr/local/lib/gcc/${MAJOR_VERSION}
+        ensure_link "$PREFIX/lib/gcc"                         /usr/local/lib/gcc/${MAJOR_VERSION}/gcc
     fi
 }
 
