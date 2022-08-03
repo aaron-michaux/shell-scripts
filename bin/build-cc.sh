@@ -182,7 +182,7 @@ build_gcc()
     local PREFIX="${OPT_ROOT}/gcc-${SUFFIX}"
     
     nice ../gcc/configure --prefix=${PREFIX} \
-         --enable-languages=c,c++,objc,obj-c++,fortran,d \
+         --enable-languages=c,c++,objc,obj-c++,fortran \
          --disable-multilib \
          --program-suffix=-${MAJOR_VERSION} \
          --enable-checking=release \
