@@ -77,7 +77,7 @@ decode_timestamp()
     check_hms "$RAW" "$M" 0 59
     check_hms "$RAW" "$SECS" 0 59
     check_hms "$RAW" "$MILLIS" 0 999
-    echo "$H:$M:$SECS.$MILLIS"
+    printf %02d:%02d:%02d.%s $H $M $SECS $MILLIS
 }
 
 # Convert a timestamp to seconds
@@ -223,7 +223,6 @@ cat "$TMPD/tmp-cutlist.text" | while read VALUE ; do
     fi
 done
 
-
 # Add the last value if required
 if [ "$(echo "$(cat "$TMPD/tmp-cutlist.text" | wc -l) % 2" | bc)" = "1" ] ; then
     LAST_VALUE="$(tail -n 1 "$TMPD/tmp-cutlist.text")"
@@ -247,7 +246,6 @@ touch "$CUTLIST"
 cat "$TMPD/tmp-cutlist.text" | while read A B ; do
     echo "$(to_ts "$A") $(to_ts "$B")" >> "$CUTLIST"
 done
-
 
 # If the cutlist is empty, then error out
 N_CUTS="$(cat "$CUTLIST" | wc -l)"
