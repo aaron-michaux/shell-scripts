@@ -175,15 +175,15 @@ do_it()
 {
     cd "$TMPD"
 
-    echo "nice ionice -c3 ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")" | dash
+    echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")" | dash
     return $?
 
     if [ "1" = "0" ] ; then
-        nice ionice -c3 ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE" $TT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -pass 1 -an -f mp4 /dev/null \
-        && nice ionice -c3 ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -pass 2 -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE"
+        nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE" $TT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -pass 1 -an -f mp4 /dev/null \
+        && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -pass 2 -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE"
     fi
 
-    nice ionice -c3 ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE" 
+    nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE" 
     RET=$?
     
     return $RET
