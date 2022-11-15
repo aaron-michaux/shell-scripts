@@ -137,6 +137,10 @@ calc_bitrate()
 to_seconds()
 {
     local TS="$1"
+    if [ "${TS:2:1}" != ":" ] || [ "${TS:5:1}" != ":" ] ; then
+        echo "Invalid timestamp '$TS', should be of format HH:MM:SS(.[0-9]*)?"
+        exit 1
+    fi
     H="${TS:0:2}"
     M="${TS:3:2}"
     S="${TS:6}"
