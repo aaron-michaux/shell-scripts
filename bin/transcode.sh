@@ -8,7 +8,8 @@ PRINT_BITRATE=0
 SERENITY=0
 BITRATE=2000
 FORMAT=
-SS=
+SS=00:00:00.000
+TO=
 TT=
 O=
 VERBOSE=0
@@ -31,13 +32,14 @@ show_help()
       -f  <format>      Output format, like 1024:768
       --mw <integer>    Maximum width of output. (Aspect ratio preserved.)
       -b  <integer>     Set the bitrate, in kb/s. (An integer)
-      -s  <timestamp>   Start at timestamp
-      -t  <timestamp>   Encode duration
+      -s  <timestamp>   Start at timestamp 
+      -to <timestamp>   End at timestamp
+      -t  <seconds>     Encode duration (Incompatible with -to)
       -v                Verbose
 
       --serenity        Transcode on serenity
 
-   Example:
+   Examples:
 
       # Transcode 'movie.mp4' at 2200 kbit/s, skipping 30s, and duration is 10s
       ~ > $(basename "$0") -i movie.mp4 -b 2200 -s 00:00:30.0 -t 00:00:10.0 out.mp4
@@ -60,6 +62,7 @@ for T in "$@" ; do
     [ "$ARG" = "-b" ] && BITRATE="$1" && shift && continue
     [ "$ARG" = "-s" ] && SS="$1" && shift && continue
     [ "$ARG" = "-t" ] && TT="$1" && shift && continue
+    [ "$ARG" = "-to" ] && TO="$1" && shift && continue
     [ "$ARG" = "-v" ] && VERBOSE=1 && continue
     [ "$ARG" = "--serenity" ] && SERENITY=1 && continue
     O="$ARG"
@@ -88,6 +91,10 @@ done
 #     exit 1
 ! [ "$MAX_W" = "0" ] && ! [ "$FORMAT" = "" ] && \
     echo "Cannot specify format and max-width at the same time" 1>&2 && \
+    exit 1
+
+[ "$TT" != "" ] && [ "$TO" != "" ] && \
+    echo "Cannot specify both -t and --to" 1>&2 && \
     exit 1
 
 # ------------------------------------------------------------------------------
@@ -126,6 +133,24 @@ calc_bitrate()
     echo "$RATE"
 }
 
+# Convert a timestamp to seconds
+to_seconds()
+{
+    local TS="$1"
+    H="${TS:0:2}"
+    M="${TS:3:2}"
+    S="${TS:6}"
+    echo "$H * 3600 + $M * 60 + $S" | bc    
+}
+
+# Second difference between two timestamps
+ts_diff()
+{
+    local A="$(to_seconds "$1")"
+    local B="$(to_seconds "$2")"
+    echo "$B - $A" | bc
+}
+
 # ------------------------------------------------------------------------------
 
 OUT_FILE="$(absfilename "$O")"
@@ -136,12 +161,13 @@ FMT_OPT=""
 QUIET="-loglevel quiet"
 [ "$SS" != "" ] && SS_OPT="-ss $SS"
 [ "$TT" != "" ] && TT_OPT="-t $TT"
+[ "$TO" != "" ] && TT_OPT="-t $(ts_diff $SS $TO)"
 [ "$FORMAT" != "" ] && FMT_OPT="-vf scale=$FORMAT"
 [ "$VERBOSE" = "1" ] && QUIET=""
 [ "$MAX_W" != "0" ] && FMT_OPT="-vf \"scale='min($MAX_W,iw)':-2\""
 
 # Check the extension of $OUT_FILE
-! [ "$(extension "$O")" = "mp4" ] && [ "$PRINT_BITRATE" != "1" ] && \
+[ "$(extension "$O")" != "mp4" ] && [ "$(extension "$O")" != "mkv" ] && [ "$PRINT_BITRATE" != "1" ] && \
     echo "Output file extension must be 'mp4'. Got: '$O'" 1>&2 && \
     exit 1
 
@@ -166,6 +192,7 @@ cat <<EOF
       Output:      '$OUT_FILE', $BITRATE (kbits/s)
       Format:      '$FMT_OPT'
       Start:       '$SS'
+      End:         '$TO'
       Duration:    '$TT'
       Serenity:    '$SERENITY'
 
@@ -174,7 +201,6 @@ EOF
 do_it()
 {
     cd "$TMPD"
-
     echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")" | dash
     return $?
 
@@ -185,53 +211,12 @@ do_it()
 
     nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE" 
     RET=$?
-    
-    return $RET
 }
 
-if [ "$SERENITY" = "0" ] ; then
-    
-    time do_it
-    exit $?
-    
-else
 
-    HOST=serenity    
-    
-    ID="~/TMP/$(basename "$TMPD")"
-    
-    cp "$IN_FILE" $TMPD/in-file
-    cp "$0" $TMPD
+do_it
+exit $?
 
-    cat > $TMPD/script.sh <<EOF
-
-cd $ID
-$ID/transcode.sh -i $ID/in-file -y -f "$FORMAT" -b "$BITRATE" -s "$SS" -t "$TT" $ID/out-file.mp4 1>$ID/stdout.text 2>$ID/stderr.text
-RESULT=\$?
-echo \$RESULT > $ID/exit-code
-rm -f $ID/in-file
-
-EOF
-
-    chmod 755 $TMPD/script.sh
-    
-    rsync -av "$TMPD/" "$HOST:$ID" 1>/dev/null
-
-    autossh -t $HOST "$ID/script.sh"
-
-    rsync -av "$HOST:$ID/" "$TMPD" 1>/dev/null
-
-    autossh -t $HOST "rm -rf $ID"
-
-    RESULT=$(cat $TMPD/exit-code)
-
-    if [ "$RESULT" = "0" ] ; then
-        cp $TMPD/out-file.mp4 "$OUT_FILE"
-    fi
-    
-    exit $RESULT
-    
-fi
 
 
 
