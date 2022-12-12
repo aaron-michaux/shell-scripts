@@ -1,7 +1,7 @@
 
 # ------------------------------------------------------ Host Platform Variables
 export TOOLS_DIR=/opt/tools
-export TOOLCHAINS_DIR=/opt/tools/toolchains
+export TOOLCHAINS_DIR=/opt/toolchains
 export ARCH_DIR=/opt/arch
 
 # Tool (host) compilers
