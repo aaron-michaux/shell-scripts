@@ -19,36 +19,34 @@ show_help()
 
    Examples:
 
-      # Install google benchmark
-      > $(basename $0) v1.7.1
+      # Install google test
+      > $(basename $0) 1.12.1
 
    Repos:
 
-      https://github.com/google/benchmark
+      https://github.com/google/googletest
 
 EOF
 }
 
 # --------------------------------------------------------------------- valgrind
 
-build_google_benchmark()
+build_google_test()
 {
     VERSION="$1"
 
     cd "$TMPD"
-    if [ ! -d benchmark ] ; then
-        git clone https://github.com/google/benchmark.git
+    if [ ! -d googletest ] ; then
+        git clone https://github.com/google/googletest.git
     fi
-    cd benchmark
+    cd googletest
     git fetch
-    git checkout ${VERSION}    
+    git checkout release-${VERSION}    
     rm -rf build
     mkdir build
     cd build
 
-    $CMAKE -D BENCHMARK_DOWNLOAD_DEPENDENCIES=On  \
-           -D CMAKE_BUILD_TYPE=Release            \
-           -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
+    $CMAKE -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
            ..
 
     make -j$(nproc)
@@ -64,6 +62,6 @@ parse_basic_args "$0" "UseToolchain" "$@"
 if [ "$ACTION" != "" ] ; then
     ensure_directory "$TOOLS_DIR"
     install_dependences
-    build_google_benchmark $ACTION
+    build_google_test $ACTION
 fi
 

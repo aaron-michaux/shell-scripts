@@ -14,56 +14,47 @@ show_help()
 
       --cleanup            Remove temporary files after building
       --no-cleanup         Do not remove temporary files after building
-      --toolchain <value>  Must be a toolchain built with 'build-toolchain.sh'
       --env                Print script environment variables
 
    Examples:
 
-      # Install google benchmark
-      > $(basename $0) v1.7.1
+      # Install cmake v3.25.1 to $TOOLS_DIR/bin
+      > $(basename $0) v3.25.1
 
    Repos:
 
-      https://github.com/google/benchmark
+      https://github.com/Kitware/CMake
 
 EOF
 }
 
 # --------------------------------------------------------------------- valgrind
 
-build_google_benchmark()
+build_cmake()
 {
-    VERSION="$1"
+    local VERSION="$1"
+    local FILE_BASE="cmake-$VERSION"
+    local FILE="$FILE_BASE.tar.gz"
 
     cd "$TMPD"
-    if [ ! -d benchmark ] ; then
-        git clone https://github.com/google/benchmark.git
-    fi
-    cd benchmark
-    git fetch
-    git checkout ${VERSION}    
-    rm -rf build
-    mkdir build
-    cd build
+    wget "https://github.com/Kitware/CMake/archive/refs/tags/$VERSION.tar.gz"
+    cat "$VERSION.tar.gz" | gzip -dc | tar -xf -
 
-    $CMAKE -D BENCHMARK_DOWNLOAD_DEPENDENCIES=On  \
-           -D CMAKE_BUILD_TYPE=Release            \
-           -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
-           ..
-
-    make -j$(nproc)
+    cd "CMake-${VERSION:1}"
+    ./configure --prefix="$TOOLS_DIR"
+    nice make -j$(nproc)
     make install
 }
 
 # ------------------------------------------------------------------------ parse
 
-parse_basic_args "$0" "UseToolchain" "$@"
+parse_basic_args "$0" "False" "$@"
 
 # ----------------------------------------------------------------------- action
 
 if [ "$ACTION" != "" ] ; then
     ensure_directory "$TOOLS_DIR"
     install_dependences
-    build_google_benchmark $ACTION
+    build_cmake $ACTION
 fi
 

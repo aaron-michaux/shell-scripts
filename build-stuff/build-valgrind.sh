@@ -14,56 +14,50 @@ show_help()
 
       --cleanup            Remove temporary files after building
       --no-cleanup         Do not remove temporary files after building
-      --toolchain <value>  Must be a toolchain built with 'build-toolchain.sh'
       --env                Print script environment variables
 
    Examples:
 
-      # Install google benchmark
-      > $(basename $0) v1.7.1
+      # Install valgrind 3.20 to $TOOLS_DIR/bin
+      > $(basename $0) 3.20.0
 
    Repos:
 
-      https://github.com/google/benchmark
+      http://www.valgrind.org/downloads
 
 EOF
 }
 
 # --------------------------------------------------------------------- valgrind
 
-build_google_benchmark()
+build_valgrind()
 {
-    VERSION="$1"
-
+    VALGRIND_VERSION="$1"
+    URL="https://sourceware.org/pub/valgrind/valgrind-${VALGRIND_VERSION}.tar.bz2"
+    VAL_D="$TMPD/valgrind-${VALGRIND_VERSION}"
+    rm -rf "$VAL_D"
     cd "$TMPD"
-    if [ ! -d benchmark ] ; then
-        git clone https://github.com/google/benchmark.git
-    fi
-    cd benchmark
-    git fetch
-    git checkout ${VERSION}    
-    rm -rf build
-    mkdir build
-    cd build
-
-    $CMAKE -D BENCHMARK_DOWNLOAD_DEPENDENCIES=On  \
-           -D CMAKE_BUILD_TYPE=Release            \
-           -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
-           ..
-
-    make -j$(nproc)
+    wget "$URL"
+    bzip2 -dc valgrind-${VALGRIND_VERSION}.tar.bz2 | tar -xf -
+    rm -f valgrind-${VALGRIND_VERSION}.tar.bz2
+    cd "$VAL_D"
+    export CC=$HOST_CC
+    export CXX=$HOST_CXX
+    ./autogen.sh
+    ./configure --prefix="$TOOLS_DIR"
+    nice make -j$(nproc)
     make install
 }
 
 # ------------------------------------------------------------------------ parse
 
-parse_basic_args "$0" "UseToolchain" "$@"
+parse_basic_args "$0" "False" "$@"
 
 # ----------------------------------------------------------------------- action
 
 if [ "$ACTION" != "" ] ; then
     ensure_directory "$TOOLS_DIR"
     install_dependences
-    build_google_benchmark $ACTION
+    build_valgrind $ACTION
 fi
 

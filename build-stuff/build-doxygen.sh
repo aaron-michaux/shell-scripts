@@ -1,42 +1,82 @@
 #!/bin/bash
 
-################################################################################
-# Qt5, make, strip, flex, bison, libiconv, libxapian, graphviz, dia, mscgen    #
-################################################################################
-
 set -e
 
-PPWD="$(cd "$(dirname "$0")" ; pwd)"
-TMPD=$(mktemp -d /tmp/$(basename $0).XXXXX)
+source "$(cd "$(dirname "$0")" ; pwd)/env.sh"
 
-VERSION=1.8.17
-
-trap cleanup EXIT
-cleanup()
+show_help()
 {
-    # echo "Skipping cleanup"
-    rm -rf $TMPD
+    cat <<EOF
+
+   Usage: $(basename $0) OPTION* <version>
+
+   Option:
+
+      --cleanup            Remove temporary files after building
+      --no-cleanup         Do not remove temporary files after building
+      --env                Print script environment variables
+
+   Examples:
+
+      # Install doxygen 1.9.5 to $TOOLS_DIR/bin
+      > $(basename $0) 1.9.5
+
+   Repos:
+
+      https://github.com/doxygen/doxygen
+
+EOF
 }
 
-sudo apt install -y flex bison libxapian-dev
+# --------------------------------------------------------------------- valgrind
 
-cd $TMPD
-wget https://sourceforge.net/projects/doxygen/files/rel-${VERSION}/doxygen-${VERSION}.src.tar.gz
-cat doxygen-${VERSION}.src.tar.gz | gunzip -dc | tar -xvf -
-mkdir build
-cd build
+build_doxygen()
+{
+    VERSION="$1"
+    VERSION_TAG="$(echo "$VERSION" | sed 's,\.,_,g')"
 
-cmake -D CMAKE_BUILD_TYPE=Release \
-      -D english_only=ON \
-      -D build_doc=OFF \
-      -D build_wizard=ON \
-      -D build_search=ON \
-      -D build_xmlparser=ON \
-      -D use_libclang=OFF \
-      -D CMAKE_INSTALL_PREFIX:PATH=/usr/local \
-      ../doxygen-${VERSION}
+    cd "$TMPD"
+    if [ ! -d doxygen ] ; then
+        git clone https://github.com/doxygen/doxygen
+    fi
+    cd doxygen
+    git fetch
+    git checkout Release_${VERSION_TAG}
+    rm -rf build
+    mkdir build
+    cd build    
+    
+    export CC="$HOST_CC"
+    export CXX="$HOST_CXX"
+    export CFLAGS="-fPIC -O3 -isystem$LLVM_DIR/include"
+    export CXXFLAGS="-fPIC -O3 -isystem$LLVM_DIR/include"
+    export LDFLAGS="-L$LLVM_DIR/lib -Wl,-rpath,$LLVM_DIR/lib"
 
-make -j$(expr $(nproc) \* 3 / 2)
-sudo make install
+    # export CMAKE_PREFIX_PATH=$TOOLS_DIR
+    $CMAKE -D CMAKE_BUILD_TYPE=Release             \
+           -D english_only=ON                      \
+           -D build_doc=OFF                        \
+           -D build_wizard=ON                      \
+           -D build_search=ON                      \
+           -D build_xmlparser=ON                   \
+           -D CMAKE_INSTALL_PREFIX:PATH=$TOOLS_DIR \
+           ..
 
-exit $?
+    make -j
+    make install
+}
+
+
+# ------------------------------------------------------------------------ parse
+
+parse_basic_args "$0" "False" "$@"
+
+# ----------------------------------------------------------------------- action
+
+if [ "$ACTION" != "" ] ; then
+    ensure_directory "$TOOLS_DIR"
+    install_dependences
+    build_doxygen $ACTION
+fi
+
+
