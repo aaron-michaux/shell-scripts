@@ -315,7 +315,7 @@ parse_basic_args()
     fi
 
     CLEANUP="True"
--    ACTION=""
+    ACTION=""
     TOOLCHAIN=""
     PRINT_ENV="False"
     ACTION=""

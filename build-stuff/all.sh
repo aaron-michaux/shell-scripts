@@ -9,7 +9,7 @@ source "./env.sh"
 CLEANOPT="--no-cleanup"
 
 ensure_directory "$TOOLS_DIR"
-ensure_directory "$TOOLCHAIN_DIR"
+ensure_directory "$TOOLCHAINS_DIR"
 ensure_directory "$ARCH_DIR"
 
 ./build-cmake.sh     $CLEANOPT  v3.25.1
