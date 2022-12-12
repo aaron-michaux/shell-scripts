@@ -66,10 +66,11 @@ build_llvm()
 
     # NOTE, to build lldb, may need to specify the python3
     #       variables below, and something else for CURSES
-    # -DPYTHON_EXECUTABLE=/usr/bin/python3.6m \
-    # -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
-    # -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
-    # -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld" \
+    # -D PYTHON_EXECUTABLE=/usr/bin/python3.6m \
+    # -D PYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
+    # -D PYTHON_INCLUDE_DIR=/usr/include/python3.6m \
+    # -D CURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.so \
+    # -D CURSES_INCLUDE_PATH=/usr/include/ \
 
     nice $CMAKE -G "Unix Makefiles" \
          -D LLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" \
@@ -83,8 +84,6 @@ build_llvm()
          -D LIBCXX_ENABLE_STATIC=YES \
          -D LLVM_BUILD_LLVM_DYLIB=YES \
          -D COMPILER_RT_ENABLE_IOS:BOOL=Off \
-         -D CURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.so \
-         -D CURSES_INCLUDE_PATH=/usr/include/ \
          -D CMAKE_INSTALL_PREFIX:PATH="$INSTALL_PREFIX" \
          $SRC_D/llvm-project/llvm
 

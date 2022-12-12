@@ -41,7 +41,7 @@ build_google_test()
     fi
     cd googletest
     git fetch
-    git checkout release-${VERSION}    
+    git checkout release-${VERSION}
     rm -rf build
     mkdir build
     cd build

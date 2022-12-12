@@ -110,12 +110,13 @@ list_toolchains()
     fi
 }
 
-gcc_libstdcxx()
+setup_libstdcxx()
 {
     local TOOLCHAIN="$1"
     if [ "${TOOLCHAIN:0:3}" != "gcc" ] ; then
         echo "Must specify a gcc toolchain to find libstdcxx!" 1>&2 && exit 1
     fi
+    TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
     CC_MAJOR_VERSION="$(echo ${TOOLCHAIN:4} | awk -F. '{ print $1 }')"
     CPP_DIR="$TOOLCHAIN_ROOT/include/c++/$CC_MAJOR_VERSION"
     CXXFLAGS+=" -isystem$CPP_DIR"
@@ -127,17 +128,59 @@ gcc_libstdcxx()
         echo "Failed to find $CPP_DIR/$ARCH directory" 1>&2 && exit 1
     fi
 
+    ADDITIONAL_LDFLAGS="-L$TOOLCHAIN_ROOT/lib64 -Wl,-rpath,$TOOLCHAIN_ROOT/lib64"
+    
     CPPLIB_DIR="$TOOLCHAIN_ROOT/lib/gcc/$ARCH/$CC_MAJOR_VERSION"
     CPPLIB_DIR_ALT="$TOOLCHAIN_ROOT/lib/gcc/$ARCH_ALT/$CC_MAJOR_VERSION"
     if [ -d "$CPPLIB_DIR" ] ; then
-        LDFLAGS+=" -L$CPPLIB_DIR -Wl,-rpath,$CPPLIB_DIR"
+        ADDITIONAL_LDFLAGS+=" -L$CPPLIB_DIR -Wl,-rpath,$CPPLIB_DIR"
     elif [ -d "$CPPLIB_DIR_ALT" ] ; then
-        LDFLAGS+=" -L$CPPLIB_DIR_ALT -Wl,-rpath,$CPPLIB_DIR_ALT"
+        ADDITIONAL_LDFLAGS+=" -L$CPPLIB_DIR_ALT -Wl,-rpath,$CPPLIB_DIR_ALT"
     else
         echo "Failed to find $CPPLIB_DIR directory" 1>&2 && exit 1
     fi
-    export LDFLAGS="$LDFLAGS"
+
+    if [ "$IS_GCC" = "True" ] ; then
+        CXXFLAGS="-nostdinc++ $CXXFLAGS"
+    fi
+    
     export CXXFLAGS="$CXXFLAGS"
+    export LDFLAGS="$ADDITIONAL_LDFLAGS $LDFLAGS -lstdc++"    
+}
+
+
+setup_libcxx()
+{
+    local TOOLCHAIN="$1"
+    if [ "${TOOLCHAIN:0:5}" != "clang" ] ; then
+        echo "Must specify a clang toolchain to find libcxx!" 1>&2 && exit 1
+    fi
+
+    TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
+
+    TRIPLE="x86_64-unknown-linux-gnu"
+    PLATFORM_INC_DIR="$TOOLCHAIN_ROOT/include/$TRIPLE/c++/v1"
+    CPPINC_DIR="$TOOLCHAIN_ROOT/include"
+    CPPLIB_DIR="$TOOLCHAIN_ROOT/lib/$TRIPLE"
+
+    if [ ! -d "$CPPLIB_DIR" ] ; then
+        echo "Failed to find clang libc++ directory: '$CPPLIB_DIR'" 1>&2 && exit 1
+    fi
+    
+    EXTRA_CXXFLAGS="-isystem$CPPINC_DIR/c++/v1 -isystem$CPPINC_DIR -isystem$PLATFORM_INC_DIR"
+    START_LDFLAGS=""
+    END_LDFLAGS="-L$CPPLIB_DIR -lc++ -lc++abi -Wl,-rpath,$CPPLIB_DIR -lpthread"
+
+    if [ "$IS_GCC" = "True" ] ; then
+        EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
+        START_LDFLAGS="-nostdlib $EXTRA_LDFLAGS"
+    else
+        EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
+        START_LDFLAGS="-nostdlib++ $EXTRA_LDFLAGS"
+    fi
+    
+    export CXXFLAGS="$EXTRA_CXXFLAGS $CXXFLAGS"
+    export LDFLAGS="$EXTRA_LDFLAGS $LDFLAGS $END_LDFLAGS"
 }
 
 major_version()
@@ -150,17 +193,16 @@ major_version()
     else
         echo "unsupported toolchain: '$TOOLCHAIN'" 1>&2 && exit 1
     fi
-
 }
 
 crosstool_setup()
 {
-    local TOOLCHAIN="$1"
-    local ALT_TOOLCHAIN="$2"
-    local LIBCXX="False"
-
     # So, TOOLCHAIN could be gcc-12.2.0, but ALT_TOOLCHAIN would be clang-15.0.6
     # In this case, we use gcc, but lld, libcxx, is found under 'clang-15.0.6'
+
+    local TOOLCHAIN="$1"
+    local ALT_TOOLCHAIN="$2"
+    local LIBCXX="$3"
 
     ensure_toolchain_is_valid "$TOOLCHAIN"
     
@@ -168,11 +210,27 @@ crosstool_setup()
         export IS_GCC="True"
         export IS_CLANG="False"
         export CC_MAJOR_VERSION="$(echo ${TOOLCHAIN:4} | awk -F. '{ print $1 }')"
+        export GCC_TOOLCHAIN="$TOOLCHAIN"
+        export CLANG_TOOLCHAIN="$ALT_TOOLCHAIN"
     else
         export IS_GCC="False"
         export IS_CLANG="True"
         export CC_MAJOR_VERSION="$(echo ${TOOLCHAIN:6} | awk -F. '{ print $1 }')"
+        export GCC_TOOLCHAIN="$ALT_TOOLCHAIN"
+        export CLANG_TOOLCHAIN="$TOOLCHAIN"
     fi
+
+    if [ "$LIBCXX" = "False" ] && [ "$IS_CLANG" = "True" ] ; then
+        # Clang using stdlibcxx
+        ensure_toolchain_is_valid "$ALT_TOOLCHAIN"
+        export STDLIB="libstdc++"
+    fi
+    if [ "$LIBCXX" = "True" ] && [ "$IS_GCC" = "True" ] ; then
+        # gcc using libcxx
+        ensure_toolchain_is_valid "$ALT_TOOLCHAIN"
+        export STDLIB="libc++"
+    fi    
+    
 
     ARCH_ALT=""
     if [ "$IS_OSX" = "True" ] ; then
@@ -194,14 +252,6 @@ crosstool_setup()
     export PREFIX="$ARCH_DIR/${ARCH}_${TOOLCHAIN}_$([ "$LIBCXX" = "True" ] && echo "libcxx" || echo "stdcxx")"
     export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
-    export CXXSTD="-std=c++20"
-    export CFLAGS="-fPIC -O3 -isystem$PREFIX/include"
-    export CXXFLAGS="-fPIC -O3 -isystem$PREFIX/include"
-    [ "$IS_CLANG" = "True" ] && LDFLAGS="-fuse-ld=$LLD" || LD_FLAGS=""
-    LDFLAGS+="-L$PREFIX/lib -Wl,-rpath,$PREFIX/lib"
-    export LDFLAGS="$LDFLAGS"
-    export LIBS="-lm -pthreads"
-
     if [ "$IS_GCC" = "True" ] ; then
         export TOOLCHAIN_NAME="gcc"
         export CC="$TOOLCHAIN_ROOT/bin/gcc-$CC_MAJOR_VERSION"
@@ -211,8 +261,6 @@ crosstool_setup()
         export RANLIB="$TOOLCHAIN_ROOT/bin/gcc-ranlib-$CC_MAJOR_VERSION"
         export GCOV="$TOOLCHAIN_ROOT/bin/gcov-$CC_MAJOR_VERSION"
         export LLD="$ALT_TOOLCHAIN_ROOT/bin/ld.lld"
-
-        gcc_libstdcxx "$TOOLCHAIN"
  
     elif [ "$IS_CLANG" = "True" ] ; then
         export TOOLCHAIN_NAME="clang"
@@ -224,10 +272,23 @@ crosstool_setup()
         export GCOV="$ALT_TOOLCHAIN_ROOT/bin/gcov-$(major_version $ALT_TOOLCHAIN)"
         export LLD="$TOOLCHAIN_ROOT/bin/ld.lld"
 
-        gcc_libstdcxx "$ALT_TOOLCHAIN"
-
     else
         echo "logic error" 1>&2 && exit 1
+    fi
+
+    export CXXSTD="-std=c++20"
+    export CFLAGS="-fPIC -O3 -isystem$PREFIX/include"
+    export CXXFLAGS="-fPIC -O3 -isystem$PREFIX/include"
+    [ "$IS_CLANG" = "True" ] && LDFLAGS="-fuse-ld=lld" || LD_FLAGS=""
+    LDFLAGS+=" -L$PREFIX/lib -Wl,-rpath,$PREFIX/lib"
+    export LDFLAGS="$LDFLAGS"
+    export LIBS="-lm -pthreads"
+
+
+    if [ "$LIBCXX" = "True" ] ; then
+        setup_libcxx "$CLANG_TOOLCHAIN"
+    else
+        setup_libstdcxx "$GCC_TOOLCHAIN"
     fi
 
     [ ! -x "$CC" ] && echo "Failed to find CC=$CC" 1>&2 && exit 1 || true
@@ -235,7 +296,6 @@ crosstool_setup()
     [ ! -x "$AR" ] && echo "Failed to find AR=$AR" 1>&2 && exit 1 || true
     [ ! -x "$NM" ] && echo "Failed to find NM=$NM" 1>&2 && exit 1 || true
     [ ! -x "$RANLIB" ] && echo "Failed to find RANLIB=$RANLIB" 1>&2 && exit 1 || true
-
 }
 
 print_env()
@@ -319,6 +379,7 @@ parse_basic_args()
     TOOLCHAIN=""
     PRINT_ENV="False"
     ACTION=""
+    LIBCXX="False"
     while (( $# > 0 )) ; do
         ARG="$1"
         shift
@@ -328,6 +389,8 @@ parse_basic_args()
         [ "$ARG" = "--no-cleanup" ]    && export CLEANUP="False" && continue
         [ "$ARG" = "--toolchain" ]     && export TOOLCHAIN="$1" && shift && continue
         [ "$ARG" = "--alt-toolchain" ] && export ALT_TOOLCHAIN="$1" && shift && continue
+        [ "$ARG" = "--libcxx" ]        && export LIBCXX="True" && continue
+        [ "$ARG" = "--stdcxx" ]        && export LIBCXX="False" && continue
         [ "$ARG" = "--env" ] && PRINT_ENV="True" && continue
 
         if [ "$ACTION" = "" ] ; then
@@ -344,7 +407,7 @@ parse_basic_args()
         fi
         
     else
-        crosstool_setup "$TOOLCHAIN" "$ALT_TOOLCHAIN"
+        crosstool_setup "$TOOLCHAIN" "$ALT_TOOLCHAIN" "$LIBCXX"
     fi
 
     if [ "$PRINT_ENV" = "True" ] ; then
