@@ -82,6 +82,7 @@ build_llvm()
          -D LIBCXX_ENABLE_SHARED=YES \
          -D LIBCXX_ENABLE_STATIC=YES \
          -D LLVM_BUILD_LLVM_DYLIB=YES \
+         -D COMPILER_RT_ENABLE_IOS:BOOL=Off \
          -D CURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.so \
          -D CURSES_INCLUDE_PATH=/usr/include/ \
          -D CMAKE_INSTALL_PREFIX:PATH="$INSTALL_PREFIX" \
