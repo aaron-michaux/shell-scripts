@@ -47,6 +47,8 @@ build()
            -D RANGES_CXX_STD=$CXXSTD              \
            -D RANGE_V3_TESTS=Off                  \
            -D RANGE_V3_EXAMPLES=Off               \
+           -D CMAKE_BUILD_TYPE=Release            \
+           -D CMAKE_PREFIX_PATH=$PREFIX           \
            -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
            ..
 

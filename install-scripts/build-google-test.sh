@@ -44,6 +44,8 @@ build_google_test()
     cd build
 
     $CMAKE -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
+           -D CMAKE_BUILD_TYPE=Release            \
+           -D CMAKE_PREFIX_PATH=$PREFIX           \
            ..
 
     make -j$(nproc)

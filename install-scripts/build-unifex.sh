@@ -53,14 +53,15 @@ build()
 
     export CXXFLAGS="$CXXFLAGS -Wno-unused-but-set-variable"
     
-    cmake -D BUILD_TESTING=Off                     \
-          -D BUILD_GMOCK=Off                       \
-          -D INSTALL_GTEST=Off                     \
-          -D Coroutines_FOUND=On                   \
-          -D CXX_COROUTINES_HAVE_COROUTINES=On     \
-          -D CMAKE_INSTALL_PREFIX=$PREFIX          \
-          -D CMAKE_CXX_FLAGS="$CXXFLAGS"           \
-          ..
+    $CMAKE -D BUILD_TESTING=Off                     \
+           -D BUILD_GMOCK=Off                       \
+           -D INSTALL_GTEST=Off                     \
+           -D Coroutines_FOUND=On                   \
+           -D CXX_COROUTINES_HAVE_COROUTINES=On     \
+           -D CMAKE_INSTALL_PREFIX=$PREFIX          \
+           -D CMAKE_BUILD_TYPE=Release              \
+           -D CMAKE_CXX_FLAGS="$CXXFLAGS"           \
+           ..
     
     make -j$(nproc)
     make install
@@ -72,12 +73,12 @@ parse_basic_args "$0" "UseToolchain" "$@"
 
 # ----------------------------------------------------------------------- action
 
-FILE="$PKG_CONFIG_PATH/libuxring.pc"
+FILE="$PREFIX/lib/cmake/unifex/unifexConfig.cmake"
 if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$FILE" ] ; then
     ensure_directory "$ARCH_DIR"
     build $VERSION
 else
-    echo "Skipping installation, pkg-config file found: '$FILE'"
+    echo "Skipping installation, cmake file found: '$FILE'"
 fi
 
 

@@ -97,7 +97,7 @@ install_dependences()
              wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
              python3-dev python3-pip python3-tk python3-lxml python3-six              \
              libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
-             libgmp-dev libmpfr-dev libmpc-dev
+             libgmp-dev libmpfr-dev libmpc-dev patchelf liblz-dev
 
     elif [ "$IS_OSX" = "True" ] ; then
         which nproc 1>/dev/null || brew install coreutils
@@ -214,9 +214,8 @@ setup_libcxx()
 
     if [ "$IS_GCC" = "True" ] ; then
         EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
-        export LDFLAGS="-nodefaultlibs $LDFLAGS $END_LDFLAGS -lc -lgcc_s -static-libgcc -lgcc -L/lib64 -l:ld-linux-x86-64.so.2"
-        # export LDFLAGS="-nostdlib $LDFLAGS $END_LDFLAGS -lc -lgcc_s -lgcc -L/lib64 -l:ld-linux-x86-64.so.2 -Wl,-dynamic-linker,/lib64/ld-linux-x86-64.so.2"
-        #  -L/lib64 -l:ld-linux-x86-64.so.2 -Wl,-dynamic-linker,/lib64/ld-linux-x86-64.so.2
+        export LDFLAGS="-nodefaultlibs $LDFLAGS $END_LDFLAGS -lc -lm -lgcc_s -static-libgcc -lgcc -L/lib64 -l:ld-linux-x86-64.so.2"
+
     else
         EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
         export LDFLAGS="-nostdlib++ $LDFLAGS $END_LDFLAGS"
@@ -345,7 +344,6 @@ crosstool_setup()
     fi
 
     export TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
-
    
     if [ "$IS_GCC" = "True" ] ; then
         export TOOLCHAIN_NAME="gcc"

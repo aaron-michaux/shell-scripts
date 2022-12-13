@@ -96,7 +96,7 @@ install_library()
     done            
 }
 
-install_library  build-google-benchmark.sh  "gcc--libcxx"
+install_library  build-google-benchmark.sh   "gcc--libcxx"
 install_library  build-google-test.sh       
 install_library  build-catch.sh             
 install_library  build-ctre.sh              
@@ -109,6 +109,7 @@ install_library  build-boost.sh
 install_library  build-ranges-ts.sh         
 install_library  build-liburing.sh         
 install_library  build-unifex.sh         
+install_library  build-grpc.sh               "gcc--libcxx"
 
 if [ "$EXIT_CODE" != "0" ] ; then
     echo "Exit-Code = $EXIT_CODE, the following failed to build:"

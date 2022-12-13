@@ -45,6 +45,8 @@ build()
 
     $CMAKE -D FMT_TEST=Off                        \
            -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
+           -D CMAKE_BUILD_TYPE=Release            \
+           -D CMAKE_PREFIX_PATH=$PREFIX           \
            ..
 
     make -j$(nproc)

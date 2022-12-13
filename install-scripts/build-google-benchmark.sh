@@ -51,6 +51,7 @@ build_google_benchmark()
     export CXXFLAGS="-Wno-maybe-uninitialized $CXXFLAGS"
     $CMAKE -D BENCHMARK_DOWNLOAD_DEPENDENCIES=On  \
            -D CMAKE_BUILD_TYPE=Release            \
+           -D CMAKE_PREFIX_PATH=$PREFIX           \
            -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
            ..
 
