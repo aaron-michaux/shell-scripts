@@ -10,11 +10,9 @@ show_help()
 
    Usage: $(basename $0) OPTION* <version>
 
-   Option:
+   Options:
 
-      --cleanup            Remove temporary files after building
-      --no-cleanup         Do not remove temporary files after building
-      --env                Print script environment variables
+$(show_help_snippet)
 
    Examples:
 
@@ -28,21 +26,28 @@ show_help()
 EOF
 }
 
-# --------------------------------------------------------------------- valgrind
+# ------------------------------------------------------------------------ build
 
 build_valgrind()
 {
     VALGRIND_VERSION="$1"
     URL="https://sourceware.org/pub/valgrind/valgrind-${VALGRIND_VERSION}.tar.bz2"
-    VAL_D="$TMPD/valgrind-${VALGRIND_VERSION}"
-    rm -rf "$VAL_D"
+
     cd "$TMPD"
-    wget "$URL"
-    bzip2 -dc valgrind-${VALGRIND_VERSION}.tar.bz2 | tar -xf -
-    rm -f valgrind-${VALGRIND_VERSION}.tar.bz2
+    VAL_D="valgrind-${VALGRIND_VERSION}"
+    VAL_F="valgrind-${VALGRIND_VERSION}.tar.bz2"
+    if [ ! -f "$VAL_F" ] ; then
+        wget "$URL"
+    fi
+    rm -rf "$VAL_D"
+    bzip2 -dc "$VAL_F" | tar -xf -
     cd "$VAL_D"
     export CC=$HOST_CC
     export CXX=$HOST_CXX
+    unset CFLAGS
+    unset CXXFLAGS
+    unset LDFLAGS
+    unset LIBS    
     ./autogen.sh
     ./configure --prefix="$TOOLS_DIR"
     nice make -j$(nproc)
@@ -55,9 +60,12 @@ parse_basic_args "$0" "False" "$@"
 
 # ----------------------------------------------------------------------- action
 
-if [ "$ACTION" != "" ] ; then
+EXEC="$TOOLS_DIR/bin/valgrind"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -x "$EXEC" ] ; then
     ensure_directory "$TOOLS_DIR"
     install_dependences
-    build_valgrind $ACTION
+    build_valgrind $VERSION
+else
+    echo "Skipping installation, executable found: '$EXEC'"
 fi
 

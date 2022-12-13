@@ -26,6 +26,8 @@ export IS_OSX=$([ "$(uname -s)" = "Darwin" ] && echo "True" || echo "False")
 show_help_snippet()
 {
     cat <<EOF
+      --version=<version>    The version of the tool/library to build
+
       --cleanup              Remove temporary files after building
       --no-cleanup           Do not remove temporary files after building
 
@@ -128,41 +130,41 @@ list_toolchains()
 setup_stdcxx()
 {
     local TOOLCHAIN="$1"
-    local ARCH_LIST="$2"
+    local TRIPLE_LIST="$2"
     local TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
     local CC_MAJOR_VERSION="$(echo ${TOOLCHAIN:4} | awk -F. '{ print $1 }')"
     local CPP_DIR="$TOOLCHAIN_ROOT/include/c++/$CC_MAJOR_VERSION"
-    
+   
     if [ "${TOOLCHAIN:0:3}" != "gcc" ] ; then
         echo "Must specify a gcc toolchain to find libstdcxx!" 1>&2 && exit 1
     fi
     
     CXXFLAGS+=" -isystem$CPP_DIR"
-    CPP_INC_ARCH_DIR=""
-    for ARCH in $ARCH_LIST ; do
-        if [ -d "$CPP_DIR/$ARCH" ] ; then
-            CPP_INC_ARCH_DIR="$CPP_DIR/$ARCH"
+    CPP_INC_TRIPLE_DIR=""
+    for TRIPLE in $TRIPLE_LIST ; do
+        if [ -d "$CPP_DIR/$TRIPLE" ] ; then
+            CPP_INC_TRIPLE_DIR="$CPP_DIR/$TRIPLE"
             break
         fi
     done
-    if [ "$CPP_INC_ARCH_DIR" = "" ] ; then
-        echo "Failed to find $CPP_DIR/[$ARCH_LIST] directory" 1>&2 && exit 1
+    if [ "$CPP_INC_TRIPLE_DIR" = "" ] ; then
+        echo "Failed to find $CPP_DIR/[$TRIPLE_LIST] directory" 1>&2 && exit 1
     fi
-    CXXFLAGS+=" -isystem$CPP_INC_ARCH_DIR"
+    CXXFLAGS+=" -isystem$CPP_INC_TRIPLE_DIR"
     
     ADDITIONAL_LDFLAGS="-L$TOOLCHAIN_ROOT/lib64 -Wl,-rpath,$TOOLCHAIN_ROOT/lib64"
     
-    CPP_LIB_ARCH_DIR=""
-    for ARCH in $ARCH_LIST ; do
-        if [ -d "$CPP_DIR/$ARCH" ] ; then
-            CPP_LIB_ARCH_DIR="$TOOLCHAIN_ROOT/lib/gcc/$ARCH/$CC_MAJOR_VERSION"
+    CPP_LIB_TRIPLE_DIR=""
+    for TRIPLE in $TRIPLE_LIST ; do
+        if [ -d "$CPP_DIR/$TRIPLE" ] ; then
+            CPP_LIB_TRIPLE_DIR="$TOOLCHAIN_ROOT/lib/gcc/$TRIPLE/$CC_MAJOR_VERSION"
             break
         fi
     done
-    if [ "$CPP_LIB_ARCH_DIR" = "" ] ; then
-        echo "Failed to find $TOOLCHAIN_ROOT/lib/gcc/[$ARCH_LIST]/$CC_MAJOR_VERSION directory" 1>&2 && exit 1
+    if [ "$CPP_LIB_TRIPLE_DIR" = "" ] ; then
+        echo "Failed to find $TOOLCHAIN_ROOT/lib/gcc/[$TRIPLE_LIST]/$CC_MAJOR_VERSION directory" 1>&2 && exit 1
     fi
-    ADDITIONAL_LDFLAGS+=" -L$CPP_LIB_ARCH_DIR -Wl,-rpath,$CPP_LIB_ARCH_DIR"
+    ADDITIONAL_LDFLAGS+=" -L$CPP_LIB_TRIPLE_DIR -Wl,-rpath,$CPP_LIB_TRIPLE_DIR"
     
     if [ "$IS_GCC" = "True" ] ; then
         CXXFLAGS="-nostdinc++ $CXXFLAGS"
@@ -176,7 +178,7 @@ setup_stdcxx()
 setup_libcxx()
 {
     local TOOLCHAIN="$1"
-    local ARCH_LIST="$2"
+    local TRIPLE_LIST="$2"
     TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
 
     if [ "${TOOLCHAIN:0:5}" != "clang" ] ; then
@@ -184,14 +186,14 @@ setup_libcxx()
     fi
 
     TRIPLE=""
-    for ARCH in $ARCH_LIST ; do
-        if [ -d "$TOOLCHAIN_ROOT/include/$ARCH/c++/v1" ] ; then
-            TRIPLE="$ARCH"
+    for TEST_TRIPLE in $TRIPLE_LIST ; do
+        if [ -d "$TOOLCHAIN_ROOT/include/$TEST_TRIPLE/c++/v1" ] ; then
+            TRIPLE="$TEST_TRIPLE"
             break
         fi
     done
     if [ "$TRIPLE" = "" ] ; then
-        echo "Failed to find libcxx directory $TOOLCHAIN_ROOT/include/$ARCH/c++/v1" 1>&2
+        echo "Failed to find libcxx directory $TOOLCHAIN_ROOT/include/$TRIPLE/c++/v1" 1>&2
         exit 1
     fi
     
@@ -267,8 +269,7 @@ crosstool_setup()
         export LLVM_TOOLCHAIN="$TOOLCHAIN"
     fi
     
-    export ARCH_LIST="$(uname -m)-linux-gnu $(uname -m)-pc-linux-gnu $(uname -m)-unknown-linux-gnu"
-    export ARCH="$(echo "$ARCH_LIST" | awk '{ print $1 }')"
+    export TRIPLE_LIST="$(uname -m)-linux-gnu $(uname -m)-pc-linux-gnu $(uname -m)-unknown-linux-gnu"
     
     if [ "$IS_OSX" = "True" ] ; then
         echo "Unimplemented" 1>&2 && exit 1
@@ -280,11 +281,8 @@ crosstool_setup()
         #     echo "unsupported arch $(uname -m), aborting" 1>&2 && exit 1
         # fi
     fi
-            
+
     export TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
-    export ALT_TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$ALT_TOOLCHAIN"
-    export PREFIX="$ARCH_DIR/${ARCH}_${TOOLCHAIN}_${STDLIB}"
-    export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
     if [ "$IS_GCC" = "True" ] ; then
         export TOOLCHAIN_NAME="gcc"
@@ -319,11 +317,15 @@ crosstool_setup()
 
     if [ "$STDLIB" = "stdcxx" ] ; then
         ensure_toolchain_is_valid "$GCC_TOOLCHAIN"        
-        setup_stdcxx "$GCC_TOOLCHAIN" "$ARCH_LIST"
+        setup_stdcxx "$GCC_TOOLCHAIN" "$TRIPLE_LIST"
     else
         ensure_toolchain_is_valid "$LLVM_TOOLCHAIN"        
-        setup_libcxx "$LLVM_TOOLCHAIN" "$ARCH_LIST"
+        setup_libcxx "$LLVM_TOOLCHAIN" "$TRIPLE_LIST"
     fi
+
+    export TRIPLE="$(echo "$TRIPLE_LIST" | awk '{ print $1 }')"
+    export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN}_${STDLIB}"
+    export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
     [ ! -x "$CC" ] && echo "Failed to find CC=$CC" 1>&2 && exit 1 || true
     [ ! -x "$CXX" ] && echo "Failed to find CXX=$CXX" 1>&2 && exit 1 || true
@@ -343,10 +345,9 @@ print_env()
     GCC_VERSION:     $GCC_VERSION
     LLVM_VERSION:    $LLVM_VERSION
     STDLIB:          $STDLIB
-    ARCH:            $ARCH
+    TRIPLE:          $TRIPLE
 
     PREFIX:          $PREFIX
-    TOOLCHAIN_ROOT:  $TOOLCHAIN_ROOT  
     PKG_CONFIG_PATH: $PKG_CONFIG_PATH
 
     CC:              $CC
@@ -363,7 +364,8 @@ print_env()
     LDFLAGS:         $LDFLAGS
     LIBS:            $LIBS
 
-    TOOLCHAINS:      $(list_toolchains | tr '\n' ' ')
+    AVAILABLE TOOLCHAINS:      
+$(list_toolchains | sed 's,^,        ,')
 
 EOF
 }
@@ -386,7 +388,7 @@ make_working_dir()
     fi
     if [ "$CLEANUP" = "False" ] ; then
         mkdir -p "$TMPD"
-        echo "Working directory set to: TMPD=$TMPD"
+        # echo "Working directory set to: TMPD=$TMPD"
     fi
 
     trap cleanup EXIT
@@ -400,19 +402,16 @@ parse_basic_args()
     shift
     local REQUIRE_TOOLCHAIN="$1"
     shift
-    local REQUIRE_ACTION="$1"
-    shift
     
-    if (( $# == 0 )) ; then
-        show_help
-        exit 0
-    fi
+    (( $# == 0 )) && show_help && exit 0 || true
+    for ARG in "$@" ; do
+        [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
+    done
 
     CLEANUP="True"
-    ACTION=""
+    VERSION=""
     TOOLCHAIN=""
     PRINT_ENV="False"
-    ACTION=""
     STDLIB="stdcxx"
     GCC_VERSION="$DEFAULT_GCC_VERSION"
     LLVM_VERSION="$DEFAULT_LLVM_VERSION"
@@ -425,7 +424,6 @@ parse_basic_args()
         LHS=$(echo "$ARG" | awk -F= '{ print $1 }')
         RHS=$(echo "$ARG" | awk -F= '{ print $2 }')
         
-        [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
         [ "$ARG" = "--cleanup" ]       && export CLEANUP="True" && continue
         [ "$ARG" = "--no-cleanup" ]    && export CLEANUP="False" && continue
         [ "$ARG" = "--libcxx" ]        && export STDLIB="libcxx" && continue
@@ -439,13 +437,12 @@ parse_basic_args()
 
         [ "$ARG" = "--force" ] || [ "$ARG" = "-f" ] && export FORCE_INSTALL="True" && continue
 
-        [ "$ARG" = "--env" ] && PRINT_ENV="True" && continue
+        [ "$ARG" = "--env" ]           && PRINT_ENV="True" && continue
 
-        if [ "$ACTION" = "" ] ; then
-            export ACTION="$ARG"
-        else
-            export ACTION="$ACTION $ARG"
-        fi
+        [ "$LHS" = "--version" ]       && export VERSION="$RHS" && continue
+        [ "$ARG" = "--version" ]       && export VERSION="$1" && shift && continue
+
+        echo "unexpected argument: '$ARG'" 1>&2 && exit 1
     done
 
     if [ "$TOOLCHAIN" = "" ] ; then
@@ -463,8 +460,8 @@ parse_basic_args()
         exit 0
     fi
 
-    if [ "$ACTION" = "" ] && [ "$REQUIRE_ACTION" != "" ] ; then
-        echo "$REQUIRE_ACTION" 1>&2 && exit 1
+    if [ "$VERSION" = "" ] ; then
+        echo "version not specified; try --version=<version>; type -h for help" 1>&2 && exit 1
     fi
 
     make_working_dir "$SCRIPT_NAME"

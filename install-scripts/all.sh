@@ -2,46 +2,60 @@
 
 set -e
 
+show_help()
+{
+    cat <<EOF
+
+   Usage: $(basename $0) [--cleanup|--no-cleanup|--force]*
+
+EOF
+}
+
+# ------------------------------------------------------------------------ parse
+
+for ARG in "$@" ; do
+    [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
+done
+
+OPTIONS=""
+for ARG in "$@" ; do
+    [ "$ARG" = "--cleanup" ] && OPTIONS="$ARG $OPTIONS" && continue
+    [ "$ARG" = "--no-cleanup" ] && OPTIONS="$ARG $OPTIONS" && continue
+    [ "$ARG" = "--force" ] && OPTIONS="$ARG $OPTIONS" && continue
+    echo "Unexpected argument '$ARG', aborting" 1>&2 && exit 1
+done
+
+# ----------------------------------------------------------------------- action
+
 WORKING_DIR="$(cd "$(dirname "$0")" ; pwd)"
 cd "$WORKING_DIR"
 source "./env.sh"
 
-CLEANOPT="--no-cleanup"
-
+# sudo stuff
 ensure_directory "$TOOLS_DIR"
 ensure_directory "$TOOLCHAINS_DIR"
 ensure_directory "$ARCH_DIR"
 
-LLVM_VERSION="clang-15.0.6"
-GCC_VERSION="gcc-12.2.0"
-TOOLCHAINS="$LLVM_VERSION $GCC_VERSION"
-STDLIBS="--libcxx --stdcxx"
+# make tools
+./build-cmake.sh     $OPTIONS  --version=v3.25.1
+./build-doxygen.sh   $OPTIONS  --version=1.9.5
+./build-valgrind.sh  $OPTIONS  --version=3.20.0
 
-./build-cmake.sh     $CLEANOPT  v3.25.1
-./build-doxygen.sh   $CLEANOPT  1.9.5
-./build-valgrind.sh  $CLEANOPT  3.20.0
-
-for TOOLCHAIN in $TOOLCHAINS ; do
-    ./build-toolchain.sh  $CLEANOPT  "$TOOLCHAIN"
+# make toolchains
+for TOOLCHAIN in "$DEFAULT_LLVM_VERSION" "$DEFAULT_GCC_VERSION" ; do
+    ./build-toolchain.sh  $OPTIONS  "$TOOLCHAIN"
 done
 
-for STDLIB in $STDLIBS ; do
-    for TOOLCHAIN in $TOOLCHAINS ; do
-        TOOLCHAIN_ARG=""
-        if [ "$TOOLCHAIN" = "$LLVM_VERSION" ] ; then
-            TOOLCHAIN_ARG="--toolchain $LLVM_VERSION --alt-toolchain $GCC_VERSION"
-        elif [ "$TOOLCHAIN" = "$GCC_VERSION" ] ; then
-            TOOLCHAIN_ARG="--toolchain $GCC_VERSION --alt-toolchain $LLVM_VERSION"
+# install libraries
+for STDLIB in "--libcxx" "--stdcxx" ; do
+    for TOOLCHAIN in "gcc" "llvm" ; do
+        if [ "$TOOLCHAIN" = "gcc" ] && [ "$STDLIB" = "--libcxx" ] ; then
+            echo "skipping google-benchmark for gcc+libcxx, this combination does not build"
         else
-            echo "logic error with toolchain args: '$TOOLCHAIN'" 1>&2 && exit 1
+            ./build-google-benchmark.sh  $OPTIONS  --toolchain=$TOOLCHAIN  $STDLIB  --version=v1.7.1
         fi
-        
-        ./build-google-benchmark.sh  $CLEANOPT  $TOOLCHAIN_ARG  $STDLIB  v1.7.1
-        ./build-google-test.sh       $CLEANOPT  $TOOLCHAIN_ARG  $STDLIB  1.12.1
+        ./build-google-test.sh       $OPTIONS  --toolchain=$TOOLCHAIN  $STDLIB  --version=1.12.1
     done
 done
-
-
-./build-google-test.sh --with-clang=15.0.6 --with-gcc=12.2.0 --toolchain=clang --stdcxx
 
 

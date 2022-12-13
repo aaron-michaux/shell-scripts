@@ -10,11 +10,9 @@ show_help()
 
    Usage: $(basename $0) OPTION* <version>
 
-   Option:
+   Options:
 
-      --cleanup            Remove temporary files after building
-      --no-cleanup         Do not remove temporary files after building
-      --env                Print script environment variables
+$(show_help_snippet)
 
    Examples:
 
@@ -28,7 +26,7 @@ show_help()
 EOF
 }
 
-# --------------------------------------------------------------------- valgrind
+# ------------------------------------------------------------------------ build
 
 build_cmake()
 {
@@ -52,9 +50,13 @@ parse_basic_args "$0" "False" "$@"
 
 # ----------------------------------------------------------------------- action
 
-if [ "$ACTION" != "" ] ; then
+EXEC="$TOOLS_DIR/bin/cmake"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -x "$EXEC" ] ; then
     ensure_directory "$TOOLS_DIR"
     install_dependences
-    build_cmake $ACTION
+    build_cmake $VERSION
+else
+    echo "Skipping installation, executable found: '$EXEC'"
 fi
+
 

@@ -10,10 +10,11 @@ show_help()
 
    Usage: $(basename $0) OPTION* <tool>
 
-   Option:
+   Options:
 
-      --cleanup           Remove temporary files after building
-      --no-cleanup        Do not remove temporary files after building
+      --cleanup              Remove temporary files after building
+      --no-cleanup           Do not remove temporary files after building
+      --force                Force reinstall of target
 
    Tool:
 
@@ -36,7 +37,7 @@ show_help()
 EOF
 }
 
-# ------------------------------------------------------------------------ clang
+# ------------------------------------------------------------------------- llvm
 
 build_llvm()
 {
@@ -147,11 +148,38 @@ build_gcc()
 
 # ------------------------------------------------------------------------ parse
 
-parse_basic_args "$0" "False" "$@"
+(( $# == 0 )) && show_help && exit 0 || true
+for ARG in "$@" ; do
+    [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
+done
 
-[ "${ACTION:0:3}" = "gcc" ] && COMMAND="build_gcc ${ARG:4}"    || true
-[ "${ACTION:0:4}" = "llvm" ] && COMMAND="build_llvm ${ARG:5}"  || true
-[ "${ACTION:0:5}" = "clang" ] && COMMAND="build_llvm ${ARG:6}" || true
+CLEANUP="True"
+FORCE_INSTALL="False"
+
+while (( $# > 0 )) ; do
+    ARG="$1"
+    shift
+    [ "$ARG" = "--cleanup" ]       && export CLEANUP="True" && continue
+    [ "$ARG" = "--no-cleanup" ]    && export CLEANUP="False" && continue
+    [ "$ARG" = "--force" ] || [ "$ARG" = "-f" ] && export FORCE_INSTALL="True" && continue
+
+    if [ "${ARG:0:3}" = "gcc" ] ; then
+        COMMAND="build_gcc ${ARG:4}"
+        CC_MAJOR_VERSION="$(echo ${ARG:4} | awk -F. '{ print $1 }')"
+        EXEC="$TOOLCHAINS_DIR/$ARG/bin/gcc-$CC_MAJOR_VERSION"
+        continue
+    fi    
+
+    if [ "${ARG:0:4}" = "llvm" ] || [ "${ARG:0:5}" = "clang" ] ; then
+        [ "${ARG:0:4}" = "llvm" ]  && VERSION="${ARG:5}" || true
+        [ "${ARG:0:5}" = "clang" ] && VERSION="${ARG:6}" || true
+        COMMAND="build_llvm $VERSION"
+        EXEC="$TOOLCHAINS_DIR/clang-$VERSION/bin/clang"
+        continue
+    fi  
+
+    echo "unexpected argument: '$ARG'" 1>&2 && exit 1
+done
 
 if [ "$COMMAND" = "" ] ; then
     echo "Must specify a build command!" 1>&2 && exit 1
@@ -159,9 +187,11 @@ fi
 
 # ----------------------------------------------------------------------- action
 
-if [ "$ACTION" != "" ] ; then
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -x "$EXEC" ] ; then
     ensure_directory "$TOOLCHAINS_DIR"
     install_dependences
     $COMMAND
+else
+    echo "Skipping installation, executable found: '$EXEC'"
 fi
 

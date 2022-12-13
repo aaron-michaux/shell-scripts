@@ -12,10 +12,7 @@ show_help()
 
    Options:
 
-      --cleanup            Remove temporary files after building
-      --no-cleanup         Do not remove temporary files after building
-      --toolchain <value>  Must be a toolchain built with 'build-toolchain.sh'
-      --env                Print script environment variables
+$(show_help_snippet)
 
    Examples:
 
@@ -29,15 +26,15 @@ show_help()
 EOF
 }
 
-# --------------------------------------------------------------------- valgrind
+# ------------------------------------------------------------------------ build
 
 build_google_benchmark()
 {
     VERSION="$1"
 
-    if [ "$IS_GCC" = "True" ] && [ "$STDLIB" = "libc++" ] ; then
-        echo "Does not build with libc++ under gcc" 1>&2
-        exit 0
+    if [ "$IS_GCC" = "True" ] && [ "$STDLIB" = "libcxx" ] ; then
+        echo "Does not build with libc++ under gcc, aborting" 1>&2
+        exit 1
     fi
 
     cd "$TMPD"
@@ -67,11 +64,12 @@ parse_basic_args "$0" "UseToolchain" "$@"
 
 # ----------------------------------------------------------------------- action
 
-if [ "$ACTION" = "" ] ; then
-    echo "Version not specified!" 1>&2 && exit 1
-else
-    ensure_directory "$TOOLS_DIR"
+PKG_FILE="$PKG_CONFIG_PATH/benchmark.pc"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$PKG_FILE" ] ; then
+    ensure_directory "$ARCH_DIR"
     install_dependences
-    build_google_benchmark $ACTION
+    build_google_benchmark $VERSION
+else
+    echo "Skipping installation, pkg-config file found: '$PKG_FILE'"
 fi
 

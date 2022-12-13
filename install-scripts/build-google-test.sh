@@ -26,7 +26,7 @@ $(show_help_snippet)
 EOF
 }
 
-# --------------------------------------------------------------------- valgrind
+# ------------------------------------------------------------------------ build
 
 build_google_test()
 {
@@ -52,13 +52,17 @@ build_google_test()
 
 # ------------------------------------------------------------------------ parse
 
-parse_basic_args "$0" "UseToolchain" "version is missing" "$@"
+parse_basic_args "$0" "UseToolchain" "$@"
 
 # ----------------------------------------------------------------------- action
 
-if [ "$ACTION" != "" ] ; then
-    ensure_directory "$TOOLS_DIR"
+PKG_FILE="$PKG_CONFIG_PATH/gtest.pc"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$PKG_FILE" ] ; then
+    ensure_directory "$ARCH_DIR"
     install_dependences
-    build_google_test $ACTION
+    build_google_test $VERSION
+else
+    echo "Skipping installation, pkg-config file found: '$PKG_FILE'"
 fi
+
 
