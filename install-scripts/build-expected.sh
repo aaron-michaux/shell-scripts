@@ -17,33 +17,34 @@ $(show_help_snippet)
    Examples:
 
       # Install using 'gcc'
-      > $(basename $0) --toolchain=gcc --version=1.12.1
+      > $(basename $0) --toolchain=gcc --version=v1.0.0
 
    Repos:
 
-      https://github.com/google/googletest
+      https://github.com/TartanLlama/expected
 
 EOF
 }
 
 # ------------------------------------------------------------------------ build
 
-build_google_test()
+build()
 {
     VERSION="$1"
 
     cd "$TMPD"
-    if [ ! -d googletest ] ; then
-        git clone https://github.com/google/googletest.git
+    if [ ! -d expected ] ; then
+        git clone https://github.com/TartanLlama/expected.git
     fi
-    cd googletest
+    cd expected
     git fetch
-    git checkout release-${VERSION}
+    git checkout ${VERSION}
     rm -rf build
     mkdir build
     cd build
 
-    $CMAKE -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
+    $CMAKE -D EXPECTED_ENABLE_TESTS=Off           \
+           -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
            ..
 
     make -j$(nproc)
@@ -56,12 +57,13 @@ parse_basic_args "$0" "UseToolchain" "$@"
 
 # ----------------------------------------------------------------------- action
 
-PKG_FILE="$PKG_CONFIG_PATH/gtest.pc"
-if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$PKG_FILE" ] ; then
+INC_FILE="$PREFIX/include/tl/expected.hpp"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$INC_FILE" ] ; then
     ensure_directory "$ARCH_DIR"
-    build_google_test $VERSION
+    build $VERSION
 else
-    echo "Skipping installation, pkg-config file found: '$PKG_FILE'"
+    echo "Skipping installation, include file found: '$INC_FILE'"
 fi
 
 
+ 

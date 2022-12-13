@@ -2,95 +2,128 @@
 
 set -e
 
-BOOST_VERSION=1_78_0
-PREFIX=/usr/local
-NO_CLEANUP=1
+source "$(cd "$(dirname "$0")" ; pwd)/env.sh"
 
-URL="https://boostorg.jfrog.io/artifactory/main/release/$(echo $BOOST_VERSION | sed 's,_,.,g')/source/boost_${BOOST_VERSION}.tar.bz2"
-
-if [ "$NO_CLEANUP" = "1" ] ; then
-    TMPD=$HOME/TMP/boost
-    mkdir -p $TMPD
-else
-    TMPD=$(mktemp -d /tmp/$(basename $0).XXXXXX)
-fi
-
-trap cleanup EXIT
-cleanup()
+show_help()
 {
-    if ! [ "$NO_CLEANUP" = "1" ] ; then
-        rm -rf $TMPD
-    fi
-    rm -f $HOME/user-config.jam
+    cat <<EOF
+
+   Usage: $(basename $0) OPTION* <version>
+
+   Options:
+
+$(show_help_snippet)
+
+   Examples:
+
+      # Install using 'gcc'
+      > $(basename $0) --toolchain=gcc --version=1.80.0
+
+   Repos:
+
+      https://www.boost.org/
+
+EOF
 }
 
-cd $TMPD
-FILE=boost_${BOOST_VERSION}.tar.bz2
-! [ -f "$FILE" ] && wget "$URL"
 
-[ -d "boost_${BOOST_VERSION}" ] && rm -rf boost_${BOOST_VERSION}
+with_libraries()
+{
+    cat <<EOF
+--with-contract
+--with-date_time
+--with-fiber
+--with-headers
+--with-json
+--with-program_options
+--with-python
+--with-serialization
+--with-stacktrace
+--with-system
+EOF
+}
 
-tar -xf boost_${BOOST_VERSION}.tar.bz2
-cd boost_${BOOST_VERSION}
-cp tools/build/example/user-config.jam $HOME
 
-#echo "using python : 3.6 : /usr/bin/python3 : /usr/include/python3.6m : /usr/lib ;" >> $HOME/user-config.jam
+without_libraries()
+{
+    cat <<EOF
+--without-atomic
+--without-chrono
+--without-container
+--without-context
+--without-coroutine
+--without-exception
+--without-filesystem
+--without-graph
+--without-graph_parallel
+--without-iostreams
+--without-locale
+--without-log
+--without-math
+--without-mpi
+--without-nowide
+--without-random
+--without-regex
+--without-test
+--without-thread
+--without-timer
+--without-type_erasure
+--without-wave
+EOF
+}
 
-#  --with-libraries=filesystem,system,python,graph
-./bootstrap.sh --prefix=$PREFIX
-./b2 -j $(expr $(nproc) \* 3 / 2) toolset=gcc cxxstd=2a --with-system 
-sudo ./b2 install toolset=gcc cxxstd=2a
+# ------------------------------------------------------------------------ build
 
-# ---
+build()
+{
+    VERSION="$1"
 
-CXX="$1"
-VERSION="$2"
-PREFIX="$3"
-TOOLSET="$4"
-STD="$5"
+    cd "$TMPD"
 
-BOOST_VERSION=1_76_0
-NO_CLEANUP=1
+    DIR="boost_$(echo "$VERSION" | sed 's,\.,_,g')"
+    TAR_F="$DIR.tar.bz2"
+    if [ ! -f "$TAR_F" ] ; then
+        URL="https://boostorg.jfrog.io/artifactory/main/release/$VERSION/source/$TAR_F"
+        wget "$URL"
+    fi
+    if [ ! -d "$DIR" ] ; then
+        cat "$TAR_F" | bzip2 -dc | tar -xf -
+    fi
+    cd "$DIR"
 
-if [ "$NO_CLEANUP" = "1" ] ; then
-    TMPD=$HOME/TMP/boost
-    mkdir -p $TMPD
-else
-    TMPD=$(mktemp -d /tmp/$(basename $0).XXXXXX)
-fi
+    if [ -f "$HOME/user-config.jam" ] ; then
+        mv "$HOME/user-config.jam" "$TMPD/"
+    fi
+    cp tools/build/example/user-config.jam "$HOME"
 
-cd $TMPD
-FILE=boost_${BOOST_VERSION}.tar.gz
-[ ! -f "$FILE" ] \
-    && wget https://dl.bintray.com/boostorg/release/$(echo $BOOST_VERSION | sed 's,_,.,g')/source/boost_${BOOST_VERSION}.tar.gz
+    TOOL="$([ "$IS_GCC" = "True" ] && echo "gcc" || echo "clang")"
+    TOOLSET="${TOOL}-${TOOLCHAIN_VERSION}"
+    
+    cat >> $HOME/user-config.jam <<EOF
+using python : $PYTHON_VERSION : /usr/bin/python3 : /usr/include/python$PYTHON_VERSION : /usr/lib ;
 
-[ -d "boost_${BOOST_VERSION}" ] && rm -rf boost_${BOOST_VERSION}
-
-tar -xf boost_${BOOST_VERSION}.tar.gz
-cd boost_${BOOST_VERSION}
-cp tools/build/example/user-config.jam $HOME
-
-CPPFLAGS=""
-LDFLAGS=""
-
-cat >> $HOME/user-config.jam <<EOF
-using python 
-   : 3.6 
-   : /usr/bin/python3 
-   : /usr/include/python3.6m 
-   : /usr/lib 
-   ;
-
-using $TOOLSET
-   : $VERSION
-   : $CXX 
-   : <cxxflags>"$CPPFLAGS" 
-     <linkflags>"$LDFLAGS" 
-   ;
+using $TOOL : $TOOLCHAIN_VERSION : $CXX : <cxxflags>"$CXXFLAGS" <linkflags>"$LDFLAGS" ;
 EOF
 
-#  --with-libraries=filesystem,system,python,graph
-./bootstrap.sh --prefix=$PREFIX
-./b2 -j $(nproc) toolset=$TOOLSET cxxstd=$STD
-sudo ./b2 install toolset=$TOOLSET cxxstd=$STD
+    LIBRARIES="$(with_libraries | tr '\n' ' ')"
+    
+    ./bootstrap.sh --prefix=$PREFIX
+    ./b2 --clean
+    ./b2 -j $(nproc) toolset="$TOOLSET" cxxstd=${CXXSTD:3} $LIBRARIES
+    ./b2 install toolset="$TOOLSET" cxxstd=${CXXSTD:3} $LIBRARIES
+}
+
+# ------------------------------------------------------------------------ parse
+
+parse_basic_args "$0" "UseToolchain" "$@"
+
+# ----------------------------------------------------------------------- action
+
+FILE="$PREFIX/lib/cmake/Boost-1.80.0/BoostConfig.cmake"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$FILE" ] ; then
+    ensure_directory "$ARCH_DIR"
+    build $VERSION
+else
+    echo "Skipping installation, cmake file found: '$FILE'"
+fi
 

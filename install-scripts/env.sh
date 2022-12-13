@@ -93,14 +93,14 @@ install_dependences()
     # brew commands (macos), yum (fedora) etc.
     if [ "$IS_UBUNTU" = "True" ] ; then
         export DEBIAN_FRONTEND=noninteractive
-        sudo apt-get install -y \
+        sudo apt-get install -y -qq \
              wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
              python3-dev python3-pip python3-tk python3-lxml python3-six              \
              libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
              libgmp-dev libmpfr-dev libmpc-dev
 
     elif [ "$IS_OSX" = "True" ] ; then
-        brew install coreutils
+        which nproc 1>/dev/null || brew install coreutils
         
     fi
 }
@@ -214,14 +214,13 @@ setup_libcxx()
 
     if [ "$IS_GCC" = "True" ] ; then
         EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
-        START_LDFLAGS="-nostdlib"
+        export LDFLAGS="$LDFLAGS $END_LDFLAGS"
     else
         EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
-        START_LDFLAGS="-nostdlib++"
+        export LDFLAGS="-nostdlib++ $LDFLAGS $END_LDFLAGS"
     fi
     
     export CXXFLAGS="$EXTRA_CXXFLAGS $CXXFLAGS"
-    export LDFLAGS="$START_LDFLAGS $LDFLAGS $END_LDFLAGS"
 }
 
 major_version()
@@ -235,6 +234,60 @@ major_version()
         echo "unsupported toolchain: '$TOOLCHAIN'" 1>&2 && exit 1
     fi
 }
+
+std_include_dirs()
+{
+    local TOOLCHAIN="$1"
+    local TOOLCHAIN_VERSION="$2"
+    local CC_MAJOR_VERSION="$3"
+    local TRIPLE_LIST="$4"
+    local DIR="$TOOLCHAINS_DIR/$TOOLCHAIN"
+
+    PLATFORM_DIR=""
+    for TEMP_TRIPLE in $TRIPLE_LIST ; do
+        local TEST_PLATFORM_DIR="/usr/include/$TEMP_TRIPLE"
+        if [ -d "$TEST_PLATFORM_DIR" ] ; then
+            PLATFORM_DIR="$TEST_PLATFORM_DIR"
+        fi
+    done
+    if [ "$PLATFORM_DIR" = "" ] ; then
+        echo "Failed to find include directory '/usr/include/[$TRIPLE_LIST]'" 1>&2 && exit 1
+    fi
+
+    if [ "${TOOLCHAIN:0:3}" = "gcc" ] ; then
+        GCC_LIB_INC=""
+        for TEMP_TRIPLE in $TRIPLE_LIST ; do
+            local TEST_DIR="$TOOLCHAINS_DIR/$TOOLCHAIN/lib/gcc/$TEMP_TRIPLE/$CC_MAJOR_VERSION"
+            if [ -d "$TEST_DIR" ] ; then
+                GCC_LIB_INC="$TEST_DIR"
+            fi
+        done
+        if [ "$GCC_LIB_INC" = "" ] ; then
+            echo "Failed to find include directory '$TOOLCHAINS_DIR/$TOOLCHAIN/lib/gcc/[$TRIPLE_LIST]/$CC_MAJOR_VERSION'" 1>&2 && exit 1
+        fi
+
+        cat <<EOF
+$GCC_LIB_INC/include
+$TOOLCHAINS_DIR/$TOOLCHAIN/include
+$GCC_LIB_INC/include-fixed
+$PLATFORM_DIR
+/usr/include
+EOF
+    else
+        CC_INC="$TOOLCHAINS_DIR/$TOOLCHAIN/lib/clang/${TOOLCHAIN:6}/include"
+        if [ ! -d "$CC_INC" ] ; then
+            echo "Failed to find include directory '$CC_INC'" 1>&2 && exit 1
+        fi
+        cat <<EOF
+$CC_INC
+$PLATFORM_DIR
+/include
+/usr/include
+EOF
+    fi
+    
+}
+
 
 crosstool_setup()
 {
@@ -252,21 +305,28 @@ crosstool_setup()
         export TOOLCHAIN="$LLVM_TOOLCHAIN"        
     fi
 
+    ensure_toolchain_is_valid "$TOOLCHAIN"
+
     export GCC_DIR="$TOOLCHAINS_DIR/$GCC_TOOLCHAIN"
     export LLVM_DIR="$TOOLCHAINS_DIR/$LLVM_TOOLCHAIN"
 
-    ensure_toolchain_is_valid "$TOOLCHAIN"
+    export PYTHON_FULL_VERSION=$(python3 --version)
+    export PYTHON_VERSION="3.$(echo "$PYTHON_FULL_VERSION" | awk -F. '{ print $2 }')"
     
     if [ "${TOOLCHAIN:0:3}" = "gcc" ] ; then
         export IS_GCC="True"
         export IS_LLVM="False"
         export CC_MAJOR_VERSION="$(echo ${TOOLCHAIN:4} | awk -F. '{ print $1 }')"
         export GCC_TOOLCHAIN="$TOOLCHAIN"
+        export TOOLCHAIN_VERSION="$(echo ${TOOLCHAIN:4} | awk -F. '{ print $1 }')"
+        export CXXSTD="c++23"
     else
         export IS_GCC="False"
         export IS_LLVM="True"
         export CC_MAJOR_VERSION="$(echo ${TOOLCHAIN:6} | awk -F. '{ print $1 }')"
         export LLVM_TOOLCHAIN="$TOOLCHAIN"
+        export TOOLCHAIN_VERSION="$(echo ${TOOLCHAIN:6} | awk -F. '{ print $1 }')"
+        export CXXSTD="c++2b"
     fi
     
     export TRIPLE_LIST="$(uname -m)-linux-gnu $(uname -m)-pc-linux-gnu $(uname -m)-unknown-linux-gnu"
@@ -284,6 +344,7 @@ crosstool_setup()
 
     export TOOLCHAIN_ROOT="$TOOLCHAINS_DIR/$TOOLCHAIN"
 
+   
     if [ "$IS_GCC" = "True" ] ; then
         export TOOLCHAIN_NAME="gcc"
         export CC="$TOOLCHAIN_ROOT/bin/gcc-$CC_MAJOR_VERSION"
@@ -315,6 +376,9 @@ crosstool_setup()
     export LDFLAGS="$LDFLAGS"
     export LIBS="-lm -pthreads"
 
+    export INCLUDE_SEARCH_PATHS="$(std_include_dirs $TOOLCHAIN $TOOLCHAIN_VERSION $CC_MAJOR_VERSION "$TRIPLE_LIST")"
+    
+    export STDLIB="$STDLIB"
     if [ "$STDLIB" = "stdcxx" ] ; then
         ensure_toolchain_is_valid "$GCC_TOOLCHAIN"        
         setup_stdcxx "$GCC_TOOLCHAIN" "$TRIPLE_LIST"
@@ -327,6 +391,8 @@ crosstool_setup()
     export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN}_${STDLIB}"
     export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
+    LIBRARY_SEARCH_PATHS="$($CXX -print-search-dirs | grep -E '^libraries' | sed 's,^libraries: =,,' | tr ':' '\n' | sed 's,/$,,')"
+    
     [ ! -x "$CC" ] && echo "Failed to find CC=$CC" 1>&2 && exit 1 || true
     [ ! -x "$CXX" ] && echo "Failed to find CXX=$CXX" 1>&2 && exit 1 || true
     [ ! -x "$AR" ] && echo "Failed to find AR=$AR" 1>&2 && exit 1 || true
@@ -358,6 +424,7 @@ print_env()
     GCOV:            $GCOV
     LLD:             $LLD
 
+    CXXSTD           $CXXSTD
     CFLAGS:          $CFLAGS
     CXXFLAGS:        $CXXFLAGS
 
@@ -367,6 +434,12 @@ print_env()
     AVAILABLE TOOLCHAINS:      
 $(list_toolchains | sed 's,^,        ,')
 
+    INCLUDE SEARCH PATHS:
+$(echo "$INCLUDE_SEARCH_PATHS" | sed 's,^,        ,')
+
+    LIBRARY SEARCH PATHS:
+$(echo "$LIBRARY_SEARCH_PATHS" | sed 's,^,        ,')
+
 EOF
 }
 
@@ -374,7 +447,12 @@ EOF
 
 cleanup()
 {
-    [ "$CLEANUP" = "True" ] && rm -rf "$TMPD" || true
+    if [ "$CLEANUP" = "True" ] ; then
+        if [ -f "$TMPD/user-config.jam" ] ; then
+            mv "$TMPD/user-config.jam" $HOME/
+        fi
+        rm -rf "$TMPD"
+    fi
 }
 
 make_working_dir()
@@ -388,7 +466,6 @@ make_working_dir()
     fi
     if [ "$CLEANUP" = "False" ] ; then
         mkdir -p "$TMPD"
-        # echo "Working directory set to: TMPD=$TMPD"
     fi
 
     trap cleanup EXIT
@@ -398,7 +475,7 @@ make_working_dir()
 
 parse_basic_args()
 {
-    local SCRIPT_NAME="$1"
+    local SCRIPT_NAME="$(echo "$1" | sed 's,^./,,')"
     shift
     local REQUIRE_TOOLCHAIN="$1"
     shift
@@ -449,8 +526,7 @@ parse_basic_args()
         if [ "$REQUIRE_TOOLCHAIN" = "True" ] || [ "$REQUIRE_TOOLCHAIN" = "UseToolchain" ]; then
             echo "Must specify a toolchain!" 1>&2
             exit 1
-        fi
-        
+        fi        
     else
         crosstool_setup "$TOOLCHAIN" "$GCC_VERSION" "$LLVM_VERSION" "$STDLIB"
     fi
@@ -460,6 +536,14 @@ parse_basic_args()
         exit 0
     fi
 
+    if [ "$VERSION" = "" ] ; then
+        VERSION_FILE="$(dirname "$0")/versions.text"
+        if [ ! -f "$VERSION_FILE" ] ; then
+            echo "Failed to find versions file!" 1>&2 && exit 1
+        fi
+        export VERSION="$(cat "$VERSION_FILE" | grep "$SCRIPT_NAME" | awk '{ print $2 }')"
+    fi
+    
     if [ "$VERSION" = "" ] ; then
         echo "version not specified; try --version=<version>; type -h for help" 1>&2 && exit 1
     fi

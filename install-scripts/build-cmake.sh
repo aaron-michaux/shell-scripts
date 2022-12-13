@@ -17,7 +17,7 @@ $(show_help_snippet)
    Examples:
 
       # Install cmake v3.25.1 to $TOOLS_DIR/bin
-      > $(basename $0) v3.25.1
+      > $(basename $0) --toolchain=gcc --version=v3.25.1
 
    Repos:
 
@@ -53,7 +53,6 @@ parse_basic_args "$0" "False" "$@"
 EXEC="$TOOLS_DIR/bin/cmake"
 if [ "$FORCE_INSTALL" = "True" ] || [ ! -x "$EXEC" ] ; then
     ensure_directory "$TOOLS_DIR"
-    install_dependences
     build_cmake $VERSION
 else
     echo "Skipping installation, executable found: '$EXEC'"

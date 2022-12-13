@@ -17,7 +17,7 @@ $(show_help_snippet)
    Examples:
 
       # Install doxygen 1.9.5 to $TOOLS_DIR/bin
-      > $(basename $0) 1.9.5
+      > $(basename $0) --toolchain=gcc --version=1.9.5
 
    Repos:
 
@@ -74,7 +74,6 @@ parse_basic_args "$0" "False" "$@"
 EXEC="$TOOLS_DIR/bin/doxygen"
 if [ "$FORCE_INSTALL" = "True" ] || [ ! -x "$EXEC" ] ; then
     ensure_directory "$TOOLS_DIR"
-    install_dependences
     build_doxygen $VERSION
 else
     echo "Skipping installation, executable found: '$EXEC'"

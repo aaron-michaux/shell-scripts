@@ -17,7 +17,7 @@ $(show_help_snippet)
    Examples:
 
       # Install valgrind 3.20 to $TOOLS_DIR/bin
-      > $(basename $0) 3.20.0
+      > $(basename $0) --toolchain=gcc --version=3.20.0
 
    Repos:
 
@@ -63,7 +63,6 @@ parse_basic_args "$0" "False" "$@"
 EXEC="$TOOLS_DIR/bin/valgrind"
 if [ "$FORCE_INSTALL" = "True" ] || [ ! -x "$EXEC" ] ; then
     ensure_directory "$TOOLS_DIR"
-    install_dependences
     build_valgrind $VERSION
 else
     echo "Skipping installation, executable found: '$EXEC'"

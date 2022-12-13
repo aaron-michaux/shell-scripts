@@ -16,8 +16,8 @@ $(show_help_snippet)
 
    Examples:
 
-      # Install google benchmark
-      > $(basename $0) v1.7.1
+      # Install using 'gcc'
+      > $(basename $0) --toolchain=gcc --version=v1.7.1
 
    Repos:
 
@@ -67,7 +67,6 @@ parse_basic_args "$0" "UseToolchain" "$@"
 PKG_FILE="$PKG_CONFIG_PATH/benchmark.pc"
 if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$PKG_FILE" ] ; then
     ensure_directory "$ARCH_DIR"
-    install_dependences
     build_google_benchmark $VERSION
 else
     echo "Skipping installation, pkg-config file found: '$PKG_FILE'"

@@ -10,6 +10,8 @@ show_help()
 
    Usage: $(basename $0) OPTION* <version>
 
+      Generalized constexpr math
+
    Options:
 
 $(show_help_snippet)
@@ -17,28 +19,28 @@ $(show_help_snippet)
    Examples:
 
       # Install using 'gcc'
-      > $(basename $0) --toolchain=gcc --version=1.12.1
+      > $(basename $0) --toolchain=gcc --version=v1.16.0
 
    Repos:
 
-      https://github.com/google/googletest
+      https://github.com/kthohr/gcem
 
 EOF
 }
 
 # ------------------------------------------------------------------------ build
 
-build_google_test()
+build()
 {
     VERSION="$1"
 
     cd "$TMPD"
-    if [ ! -d googletest ] ; then
-        git clone https://github.com/google/googletest.git
+    if [ ! -d gcem ] ; then
+        git clone https://github.com/kthohr/gcem
     fi
-    cd googletest
+    cd gcem
     git fetch
-    git checkout release-${VERSION}
+    git checkout ${VERSION}
     rm -rf build
     mkdir build
     cd build
@@ -56,12 +58,13 @@ parse_basic_args "$0" "UseToolchain" "$@"
 
 # ----------------------------------------------------------------------- action
 
-PKG_FILE="$PKG_CONFIG_PATH/gtest.pc"
-if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$PKG_FILE" ] ; then
+FILE="$PREFIX/lib/cmake/gcem/gcemConfig.cmake"
+if [ "$FORCE_INSTALL" = "True" ] || [ ! -f "$FILE" ] ; then
     ensure_directory "$ARCH_DIR"
-    build_google_test $VERSION
+    build $VERSION
 else
-    echo "Skipping installation, pkg-config file found: '$PKG_FILE'"
+    echo "Skipping installation, cmake file found: '$FILE'"
 fi
 
 
+ 
