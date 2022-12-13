@@ -85,7 +85,7 @@ install_library()
             if [ "$SKIP" = "${TOOLCHAIN}${STDLIB}" ] ; then
                 echo "skipping $SCRIPT for $SKIP, this combination does not build"
             else
-                COMMAND="./$SCRIPT  $OPTIONS   $FORCE_LIBS  --toolchain=$TOOLCHAIN  $STDLIB  --version=$VERSION"
+                COMMAND="./$SCRIPT  $OPTIONS   $FORCE_LIBS  --toolchain=$TOOLCHAIN  $STDLIB"
                 $COMMAND && SUCCESS="True" || SUCCESS="False"
                 if [ "$SUCCESS" = "False" ] ; then
                     echo "$COMMAND" >> $TMPF
@@ -108,6 +108,7 @@ install_library  build-spdlog.sh
 install_library  build-boost.sh             
 install_library  build-ranges-ts.sh         
 install_library  build-liburing.sh         
+install_library  build-unifex.sh         
 
 if [ "$EXIT_CODE" != "0" ] ; then
     echo "Exit-Code = $EXIT_CODE, the following failed to build:"

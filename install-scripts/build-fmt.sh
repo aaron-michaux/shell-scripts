@@ -43,7 +43,8 @@ build()
     mkdir build
     cd build
 
-    $CMAKE -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
+    $CMAKE -D FMT_TEST=Off                        \
+           -D CMAKE_INSTALL_PREFIX:PATH=$PREFIX   \
            ..
 
     make -j$(nproc)

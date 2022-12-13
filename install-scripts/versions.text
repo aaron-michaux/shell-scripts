@@ -13,3 +13,4 @@ build-spdlog.sh            v1.11.0
 build-boost.sh             1.80.0
 build-ranges-ts.sh         0.12.0
 build-liburing.sh          liburing-2.3
+build-unifex.sh            591ec09e7d51858ad05be979d4034574215f5971
