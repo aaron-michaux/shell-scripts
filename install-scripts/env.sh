@@ -542,12 +542,11 @@ parse_basic_args()
             echo "Failed to find versions file!" 1>&2 && exit 1
         fi
         export VERSION="$(cat "$VERSION_FILE" | grep "$SCRIPT_NAME" | awk '{ print $2 }')"
+        if [ "$VERSION" = "" ] ; then
+            echo "Script $SCRIPT_NAME does not appear in '$VERSION_FILE', and version not specified on the command line, aborting" 1>&2 && exit 1
+        fi
     fi
     
-    if [ "$VERSION" = "" ] ; then
-        echo "version not specified; try --version=<version>; type -h for help" 1>&2 && exit 1
-    fi
-
     make_working_dir "$SCRIPT_NAME"
 }
 
