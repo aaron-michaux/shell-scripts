@@ -107,6 +107,7 @@ install_library  build-ofats.sh
 install_library  build-spdlog.sh            
 install_library  build-boost.sh             
 install_library  build-ranges-ts.sh         
+install_library  build-liburing.sh         
 
 if [ "$EXIT_CODE" != "0" ] ; then
     echo "Exit-Code = $EXIT_CODE, the following failed to build:"

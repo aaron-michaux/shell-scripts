@@ -30,45 +30,14 @@ EOF
 with_libraries()
 {
     cat <<EOF
---with-contract
 --with-date_time
 --with-fiber
 --with-headers
 --with-json
 --with-program_options
---with-python
 --with-serialization
 --with-stacktrace
 --with-system
-EOF
-}
-
-
-without_libraries()
-{
-    cat <<EOF
---without-atomic
---without-chrono
---without-container
---without-context
---without-coroutine
---without-exception
---without-filesystem
---without-graph
---without-graph_parallel
---without-iostreams
---without-locale
---without-log
---without-math
---without-mpi
---without-nowide
---without-random
---without-regex
---without-test
---without-thread
---without-timer
---without-type_erasure
---without-wave
 EOF
 }
 
@@ -102,11 +71,17 @@ build()
     cat >> $HOME/user-config.jam <<EOF
 using python : $PYTHON_VERSION : /usr/bin/python3 : /usr/include/python$PYTHON_VERSION : /usr/lib ;
 
-using $TOOL : $TOOLCHAIN_VERSION : $CXX : <cxxflags>"$CXXFLAGS" <linkflags>"$LDFLAGS" ;
+using $TOOL : $TOOLCHAIN_VERSION : $CXX : 
+<cflags>"$CFLAGS -O3"
+<cxxflags>"$CXXFLAGS -O3"
+<linkflags>"$LDFLAGS"
+;
 EOF
 
     LIBRARIES="$(with_libraries | tr '\n' ' ')"
-    
+
+    rm -f b2
+    rm -rf "bin.v2" "stage"
     ./bootstrap.sh --prefix=$PREFIX
     ./b2 --clean
     ./b2 -j $(nproc) toolset="$TOOLSET" cxxstd=${CXXSTD:3} $LIBRARIES

@@ -214,7 +214,9 @@ setup_libcxx()
 
     if [ "$IS_GCC" = "True" ] ; then
         EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
-        export LDFLAGS="$LDFLAGS $END_LDFLAGS"
+        export LDFLAGS="-nodefaultlibs $LDFLAGS $END_LDFLAGS -lc -lgcc_s -static-libgcc -lgcc -L/lib64 -l:ld-linux-x86-64.so.2"
+        # export LDFLAGS="-nostdlib $LDFLAGS $END_LDFLAGS -lc -lgcc_s -lgcc -L/lib64 -l:ld-linux-x86-64.so.2 -Wl,-dynamic-linker,/lib64/ld-linux-x86-64.so.2"
+        #  -L/lib64 -l:ld-linux-x86-64.so.2 -Wl,-dynamic-linker,/lib64/ld-linux-x86-64.so.2
     else
         EXTRA_CXXFLAGS="-nostdinc++ $EXTRA_CXXFLAGS"
         export LDFLAGS="-nostdlib++ $LDFLAGS $END_LDFLAGS"
