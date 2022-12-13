@@ -10,12 +10,9 @@ show_help()
 
    Usage: $(basename $0) OPTION* <version>
 
-   Option:
+   Options:
 
-      --cleanup            Remove temporary files after building
-      --no-cleanup         Do not remove temporary files after building
-      --toolchain <value>  Must be a toolchain built with 'build-toolchain.sh'
-      --env                Print script environment variables
+$(show_help_snippet)
 
    Examples:
 
@@ -55,7 +52,7 @@ build_google_test()
 
 # ------------------------------------------------------------------------ parse
 
-parse_basic_args "$0" "UseToolchain" "$@"
+parse_basic_args "$0" "UseToolchain" "version is missing" "$@"
 
 # ----------------------------------------------------------------------- action
 

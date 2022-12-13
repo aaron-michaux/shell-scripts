@@ -10,7 +10,7 @@ show_help()
 
    Usage: $(basename $0) OPTION* <version>
 
-   Option:
+   Options:
 
       --cleanup            Remove temporary files after building
       --no-cleanup         Do not remove temporary files after building

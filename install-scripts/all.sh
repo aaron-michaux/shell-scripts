@@ -41,3 +41,7 @@ for STDLIB in $STDLIBS ; do
     done
 done
 
+
+./build-google-test.sh --with-clang=15.0.6 --with-gcc=12.2.0 --toolchain=clang --stdcxx
+
+
