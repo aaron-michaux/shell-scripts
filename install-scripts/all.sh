@@ -117,4 +117,6 @@ if [ "$EXIT_CODE" != "0" ] ; then
     echo
 fi
 
+check-libcxx-installations.sh
+
 exit $EXIT_CODE

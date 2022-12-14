@@ -30,14 +30,18 @@ EOF
 with_libraries()
 {
     cat <<EOF
+--with-coroutine
 --with-date_time
 --with-fiber
+--with-filesystem
 --with-headers
 --with-json
 --with-program_options
+--with-regex
 --with-serialization
 --with-stacktrace
 --with-system
+--with-thread
 EOF
 }
 

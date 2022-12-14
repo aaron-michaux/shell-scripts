@@ -97,7 +97,7 @@ install_dependences()
              wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
              python3-dev python3-pip python3-tk python3-lxml python3-six              \
              libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
-             libgmp-dev libmpfr-dev libmpc-dev patchelf liblz-dev
+             libgmp-dev libmpfr-dev libmpc-dev patchelf liblz-dev pax-utils 
 
     elif [ "$IS_OSX" = "True" ] ; then
         which nproc 1>/dev/null || brew install coreutils
@@ -450,6 +450,8 @@ cleanup()
     if [ "$CLEANUP" = "True" ] ; then
         if [ -f "$TMPD/user-config.jam" ] ; then
             mv "$TMPD/user-config.jam" $HOME/
+        else
+            rm -f "$HOME/user-config.jam"
         fi
         rm -rf "$TMPD"
     fi
@@ -462,7 +464,7 @@ make_working_dir()
     if [ "$CLEANUP" = "True" ] ; then
         TMPD="$(mktemp -d /tmp/$(basename "$SCRIPT_NAME" .sh).XXXXXX)"
     else
-        TMPD="/tmp/${USER}-$(basename "$SCRIPT_NAME" .sh)"
+        TMPD="/tmp/$(basename "$SCRIPT_NAME" .sh)-${USER}"
     fi
     if [ "$CLEANUP" = "False" ] ; then
         mkdir -p "$TMPD"

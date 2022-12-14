@@ -46,6 +46,7 @@ build()
     sed -i 's,#include <liburing/io_uring.h>,#include <linux/time_types.h>\n#include <liburing/io_uring.h>,' include/unifex/linux/io_uring_context.hpp
     sed -i 's,size_t count = 0;,size_t count = 0;\n(void)count;,' source/linux/io_epoll_context.cpp
     sed -i 's,size_t count = 0;,size_t count = 0;\n(void)count;,' source/linux/io_uring_context.cpp
+    sed -i 's,add_compile_options(-Wall -Wextra -pedantic -Werror),add_compile_options(-Wall -Wextra -Werror),' cmake/unifex_env.cmake
     
     rm -rf build
     mkdir build
@@ -58,9 +59,10 @@ build()
            -D INSTALL_GTEST=Off                     \
            -D Coroutines_FOUND=On                   \
            -D CXX_COROUTINES_HAVE_COROUTINES=On     \
-           -D CMAKE_INSTALL_PREFIX=$PREFIX          \
-           -D CMAKE_BUILD_TYPE=Release              \
            -D CMAKE_CXX_FLAGS="$CXXFLAGS"           \
+           -D CMAKE_BUILD_TYPE=Release              \
+           -D CMAKE_PREFIX_PATH=$PREFIX             \
+           -D CMAKE_INSTALL_PREFIX=$PREFIX          \
            ..
     
     make -j$(nproc)
