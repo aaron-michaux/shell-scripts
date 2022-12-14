@@ -236,60 +236,6 @@ major_version()
     fi
 }
 
-std_include_dirs()
-{
-    local TOOLCHAIN="$1"
-    local TOOLCHAIN_VERSION="$2"
-    local CC_MAJOR_VERSION="$3"
-    local TRIPLE_LIST="$4"
-    local DIR="$TOOLCHAINS_DIR/$TOOLCHAIN"
-
-    PLATFORM_DIR=""
-    for TEMP_TRIPLE in $TRIPLE_LIST ; do
-        local TEST_PLATFORM_DIR="/usr/include/$TEMP_TRIPLE"
-        if [ -d "$TEST_PLATFORM_DIR" ] ; then
-            PLATFORM_DIR="$TEST_PLATFORM_DIR"
-        fi
-    done
-    if [ "$PLATFORM_DIR" = "" ] ; then
-        echo "Failed to find include directory '/usr/include/[$TRIPLE_LIST]'" 1>&2 && exit 1
-    fi
-
-    if [ "${TOOLCHAIN:0:3}" = "gcc" ] ; then
-        GCC_LIB_INC=""
-        for TEMP_TRIPLE in $TRIPLE_LIST ; do
-            local TEST_DIR="$TOOLCHAINS_DIR/$TOOLCHAIN/lib/gcc/$TEMP_TRIPLE/$CC_MAJOR_VERSION"
-            if [ -d "$TEST_DIR" ] ; then
-                GCC_LIB_INC="$TEST_DIR"
-            fi
-        done
-        if [ "$GCC_LIB_INC" = "" ] ; then
-            echo "Failed to find include directory '$TOOLCHAINS_DIR/$TOOLCHAIN/lib/gcc/[$TRIPLE_LIST]/$CC_MAJOR_VERSION'" 1>&2 && exit 1
-        fi
-
-        cat <<EOF
-$GCC_LIB_INC/include
-$TOOLCHAINS_DIR/$TOOLCHAIN/include
-$GCC_LIB_INC/include-fixed
-$PLATFORM_DIR
-/usr/include
-EOF
-    else
-        CC_INC="$TOOLCHAINS_DIR/$TOOLCHAIN/lib/clang/${TOOLCHAIN:6}/include"
-        if [ ! -d "$CC_INC" ] ; then
-            echo "Failed to find include directory '$CC_INC'" 1>&2 && exit 1
-        fi
-        cat <<EOF
-$CC_INC
-$PLATFORM_DIR
-/include
-/usr/include
-EOF
-    fi
-    
-}
-
-
 crosstool_setup()
 {
     # So, TOOLCHAIN could be gcc-12.2.0, but ALT_TOOLCHAIN would be clang-15.0.6
@@ -369,14 +315,16 @@ crosstool_setup()
         echo "logic error" 1>&2 && exit 1
     fi
 
+    export TRIPLE="$(echo "$TRIPLE_LIST" | awk '{ print $1 }')"
+    export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN}_${STDLIB}"
+    export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+
     export CFLAGS="-fPIC -O3 -isystem$PREFIX/include"
     export CXXFLAGS="-fPIC -O3 -isystem$PREFIX/include"
     [ "$IS_LLVM" = "True" ] && LDFLAGS="-fuse-ld=lld " || LD_FLAGS=""
     LDFLAGS+="-L$PREFIX/lib -Wl,-rpath,$PREFIX/lib"
     export LDFLAGS="$LDFLAGS"
-    export LIBS="-lm -pthreads"
-
-    export INCLUDE_SEARCH_PATHS="$(std_include_dirs $TOOLCHAIN $TOOLCHAIN_VERSION $CC_MAJOR_VERSION "$TRIPLE_LIST")"
+    export LIBS="-lm -pthreads"   
     
     export STDLIB="$STDLIB"
     if [ "$STDLIB" = "stdcxx" ] ; then
@@ -386,10 +334,6 @@ crosstool_setup()
         ensure_toolchain_is_valid "$LLVM_TOOLCHAIN"        
         setup_libcxx "$LLVM_TOOLCHAIN" "$TRIPLE_LIST"
     fi
-
-    export TRIPLE="$(echo "$TRIPLE_LIST" | awk '{ print $1 }')"
-    export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN}_${STDLIB}"
-    export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
     LIBRARY_SEARCH_PATHS="$($CXX -print-search-dirs | grep -E '^libraries' | sed 's,^libraries: =,,' | tr ':' '\n' | sed 's,/$,,')"
     
@@ -433,12 +377,6 @@ print_env()
 
     AVAILABLE TOOLCHAINS:      
 $(list_toolchains | sed 's,^,        ,')
-
-    INCLUDE SEARCH PATHS:
-$(echo "$INCLUDE_SEARCH_PATHS" | sed 's,^,        ,')
-
-    LIBRARY SEARCH PATHS:
-$(echo "$LIBRARY_SEARCH_PATHS" | sed 's,^,        ,')
 
 EOF
 }

@@ -17,6 +17,13 @@ WORKING_DIR="$(cd "$(dirname "$0")" ; pwd)"
 cd "$WORKING_DIR"
 source "./env.sh"
 
+TMPD="$(mktemp -d $(basename "$0").XXXXXX)"
+trap check_cleanup EXIT
+check_cleanup()
+{
+    rm -rf "$TMPD"
+}
+
 find_installations()
 {
     find "$ARCH_DIR" -maxdepth 1 -type d -name '*_libcxx' | sort
@@ -24,25 +31,25 @@ find_installations()
 
 check_installation()
 {
-    RET_CODE="0"
+    echo "0" > $TMPD/1
     find -L "$DIR" -type l -o -type f -name '*.so' | while read FILE ; do
         lddtree "$FILE" | grep -q "libstdc++" && SUCCESS="False" || SUCCESS="True"
         if [ "$SUCCESS" = "False" ] ; then
             echo "Error: $FILE links to libstdc++"
-            RET_CODE="1"
+            echo "1" > $TMPD/1
         fi
     done
-    return "$RET_CODE"
+    return "$(cat "$TMPD/1")"
 }
 
-EXIT_CODE="0"
+echo "0" > $TMPD/exit-code
 find_installations | while read DIR ; do    
     if check_installation "$DIR" ; then
         echo "PASS: $DIR"
     else
-        EXIT_CODE="1"
+        echo "1" > $TMPD/exit-code
     fi
 done
 
-exit "$EXIT_CODE"
+exit "$(cat $TMPD/exit-code)"
 

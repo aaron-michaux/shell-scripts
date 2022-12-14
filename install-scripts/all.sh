@@ -104,7 +104,8 @@ install_library  build-expected.sh
 install_library  build-gcem.sh              
 install_library  build-fmt.sh               
 install_library  build-ofats.sh             
-install_library  build-spdlog.sh            
+install_library  build-spdlog.sh
+install_library  build-icu.sh
 install_library  build-boost.sh             
 install_library  build-ranges-ts.sh         
 install_library  build-liburing.sh         
@@ -117,6 +118,8 @@ if [ "$EXIT_CODE" != "0" ] ; then
     echo
 fi
 
-check-libcxx-installations.sh
+echo
+echo "Checking libcxx installations..."
+./check-libcxx-installations.sh
 
 exit $EXIT_CODE
