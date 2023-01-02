@@ -192,6 +192,7 @@
 ;;; ---------------------------------------------------------- Buffer Management
 
 ;;; Life gets easier when you don't have duplicate buffer names
+
 (require 'uniquify)
 (setq uniquify-buffer-name-style 'reverse)
 (setq uniquify-separator "|")
@@ -240,7 +241,6 @@
   ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
   (setq vertico-cycle t)
   )
-
 
 ;;; ------------------------------------------------------------------------ LSP
 
@@ -365,9 +365,7 @@
 ; C-c p k     => Kill all project buffers
 ; C-c p s     => Switch project
 
-
 ; C-u C-c p f => Invalidate project cache before finding files
-
 
 ;;; ----------------------------------------------------------------- Word Count
 
