@@ -26,6 +26,11 @@ export IS_UBUNTU=$([ -x /usr/bin/lsb_release ] && lsb_release -a 2>/dev/null | g
 export IS_FEDORA=$([ -f /etc/fedora-release ] && echo "True" || echo "False")
 export IS_OSX=$([ "$(uname -s)" = "Darwin" ] && echo "True" || echo "False")
 
+if [ "$IS_OSX" = "True" ] ; then
+    export DEVELOPER_DIR=/Library/Developer/CommandLineTools
+    export SDK_DIR=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+fi
+
 ensure_link()
 {
     local SOURCE="$1"
@@ -228,6 +233,12 @@ crosstool_setup()
 
     else
         echo "logic error" 1>&2 && exit 1
+    fi
+
+    if [ "$IS_OSX" = "True" ] ; then
+        XCTOOLCHAIN=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain
+        export CFLAGS="-isystem$XCTOOLCHAIN/usr/include $CFLAGS"
+        export CXXFLAGS="-isystem$XCTOOLCHAIN/usr/include/c++/v1 $CXXFLAGS"
     fi
 
     [ ! -x "$CC" ] && echo "Failed to find CC=$CC" 1>&2 && exit 1 || true

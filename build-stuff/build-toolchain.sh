@@ -70,7 +70,7 @@ build_llvm()
     # -DPYTHON_LIBRARY=/usr/lib/python3.6/config-3.6m-x86_64-linux-gnu/libpython3.6m.so \
     # -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m \
     # -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;libcxx;libcxxabi;libunwind;compiler-rt;lld" \
-
+    
     nice $CMAKE -G "Unix Makefiles" \
          -D LLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" \
          -D LLVM_ENABLE_RUNTIMES="compiler-rt;libc;libcxx;libcxxabi;libunwind" \
@@ -82,10 +82,11 @@ build_llvm()
          -D LIBCXX_ENABLE_SHARED=YES \
          -D LIBCXX_ENABLE_STATIC=YES \
          -D LLVM_BUILD_LLVM_DYLIB=YES \
-         -D COMPILER_RT_ENABLE_IOS:BOOL=Off \
+         -D BUILTINS_CMAKE_ARGS=-DCOMPILER_RT_ENABLE_IOS=OFF \
          -D CURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.so \
          -D CURSES_INCLUDE_PATH=/usr/include/ \
          -D CMAKE_INSTALL_PREFIX:PATH="$INSTALL_PREFIX" \
+         $SYSROOT_ARG \
          $SRC_D/llvm-project/llvm
 
     nice make -j$(nproc) 2>$BUILD_D/stderr.text | tee $BUILD_D/stdout.text
