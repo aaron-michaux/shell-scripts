@@ -127,6 +127,28 @@
 (set-cursor-color "#ff0000")
 (setq-default cursor-type 'box)
 
+;; Face customization
+(defun custom-markdown-colors ()
+ (interactive)
+ (set-face-foreground 'markdown-inline-code-face "#b50101")
+ (set-face-background 'markdown-inline-code-face "gray95"))
+
+(defun what-face (pos)
+ (interactive "d")
+ (let ((face (or (get-char-property (point) 'read-face-name)
+		 (get-char-property (point) 'face))))
+  (if face (message "Face: %s" face) (message "No face at %d" pos))))
+
+(defun custom-sh-faces ()
+ (interactive)
+ (custom-theme-set-faces
+  'user
+  '(sh-heredoc ((t (:inherit 'font-lock-comment-face)))))
+ (set-face-foreground 'sh-heredoc "#Fde17c"))
+
+(add-hook 'shell-script-mode-hook 'custom-sh-faces)
+(add-hook 'sh-mode-hook 'custom-sh-faces)
+
 ;;; -------------------------------------------------------------- Indent Guides
 
 ;(require 'highlight-indent-guides)
@@ -829,6 +851,7 @@ bracket is present"
 (global-set-key [(super f2)] (lambda ()(interactive) (jump-to-register 2)))
 
 (global-set-key (kbd "TAB") 'indent-for-tab-command)
+(global-set-key (kbd "M-e") 'eval-region)
 
 ;; Shift+Arrow to move between buffers
 (when (fboundp 'windmove-default-keybindings)

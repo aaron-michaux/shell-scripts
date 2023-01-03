@@ -1,4 +1,0 @@
-#!/bin/sh
-
-sshfs -o allow_other,default_permissions dev:/home/BRCMLTD/am894222 $HOME/OracleDev
-
