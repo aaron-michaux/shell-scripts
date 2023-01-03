@@ -828,7 +828,11 @@ bracket is present"
 (global-set-key [f2] (lambda ()(interactive) (point-to-register 2)))
 (global-set-key [(super f2)] (lambda ()(interactive) (jump-to-register 2)))
 
+(global-set-key (kbd "TAB") 'indent-for-tab-command)
+
 ;; Shift+Arrow to move between buffers
 (when (fboundp 'windmove-default-keybindings)
   (windmove-default-keybindings))
+
+
 
