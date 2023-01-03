@@ -70,7 +70,7 @@
  '(inhibit-startup-screen t)
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(package-selected-packages
-   '(flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
+   '(counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -87,7 +87,8 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(border ((t (:background "black" :width condensed))))
- '(fringe ((((class color) (background dark)) (:background "grey10" :weight thin :width condensed)))))
+ '(fringe ((((class color) (background dark)) (:background "grey10" :weight thin :width condensed))))
+ '(sh-heredoc ((t (:inherit 'font-lock-comment-face)))))
 
 ;; Ammend the auto-mode-alist with new aliases for appropriate modes
 (setq auto-mode-alist
@@ -305,7 +306,17 @@
 
 ;;; -------------------------------------------------------------- Counsel Etags
 
-(use-package counsel-etags)
+(use-package counsel-etags
+  :ensure t
+  :bind (("C-]" . counsel-etags-find-tag-at-point))
+  :init
+  (add-hook 'prog-mode-hook
+        (lambda ()
+          (add-hook 'after-save-hook
+            'counsel-etags-virtual-update-tags 'append 'local)))
+  :config
+  (setq counsel-etags-update-interval 60)
+  (push "build" counsel-etags-ignore-directories))
 
 ;;; ------------------------------------------------------------------ Which Key
 
@@ -326,23 +337,10 @@
 
 (use-package origami)
 
-(define-key global-map (kbd "C-c o u") 'origami-undo)
-(define-key global-map (kbd "C-c o r") 'origami-redo)
-(define-key global-map (kbd "C-c o t") 'origami-toggle-node)
-(define-key global-map (kbd "C-c o o") 'origami-open-all-nodes)
-(define-key global-map (kbd "C-c o q") 'origami-reset)
-
 ;;; -------------------------------------------------------------- visual-regexp
 
 (use-package visual-regexp)
 (use-package visual-regexp-steroids)
-
-(define-key global-map (kbd "C-c r") 'vr/replace)
-(define-key global-map (kbd "C-c q") 'vr/query-replace)
-;; if you use multiple-cursors, this is for you:
-;(define-key global-map (kbd "C-c m") 'vr/mc-mark)
-(define-key global-map (kbd "C-s") 'isearch-forward-regexp)  ;; C-M-r
-(define-key global-map (kbd "C-r") 'isearch-backward-regexp) ;; C-M-s
 
 ;;; ---------------------------------------------------------- string-inflection
 
@@ -376,22 +374,6 @@
 
 ; Cache project index
 (setq projectile-enable-caching t)
-
-(define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
-
-;;; Shortcuts
-; C-c p f     => Find files in project
-; C-c p d     => Find directory in project
-; C-c p R     => Regenerate etags/gtags
-; C-c p b     => Switch to project buffer
-; C-c p g     => Grep the project
-; C-c p j     => Find a tag in the project
-; C-c p o     => Run multi-occur on project buffers
-
-; C-c p k     => Kill all project buffers
-; C-c p s     => Switch project
-
-; C-u C-c p f => Invalidate project cache before finding files
 
 ;;; ----------------------------------------------------------------- Word Count
 
@@ -562,10 +544,6 @@ will be killed."
 
 (require 'clang-format)
 
-(global-set-key (kbd "C-c i") 'clang-format-region)
-(global-set-key (kbd "C-c u") 'clang-format-buffer)
-(global-set-key [C-M-tab] 'clang-format-region)
-
 ;; (add-hook 'clang-format-buffer '(c-mode-hook c++-mode-hook))
 
 (with-eval-after-load 'cc-mode
@@ -616,13 +594,6 @@ will be killed."
 (put 'with-font 'scheme-indent-function 1)
 (put 'call-with-postscript-file 'scheme-indent-function 1)
 (put 'parallel-do 'scheme-indent-function 2)
-(define-key scheme-mode-map "\r" 'newline-and-indent)
-(define-key scheme-mode-map "\C-zl" 'load-file-lisp)
-(define-key scheme-mode-map "\C-zc" 'eval-defun-lisp)
-(define-key scheme-mode-map "\C-ze" 'eval-defun-lisp)
-(define-key scheme-mode-map "\C-z\C-c" 'eval-defun-and-go-lisp)
-(define-key scheme-mode-map "\C-z\C-e" 'eval-defun-and-go-lisp)
-(define-key scheme-mode-map "\C-z)" 'find-unbalanced-lisp)
 
 (defun collapse-whitespace-sexp ()
  "Kill whitespace after sexp, remove newline if trailing closing
@@ -649,11 +620,6 @@ bracket is present"
    (progn
     (re-search-forward "[ \t\r\n]+" nil t)
     (replace-match "" nil nil))))))
-
-(global-set-key (kbd "C-M-y") 'mark-sexp)
-(global-set-key (kbd "C-M-z") 'collapse-whitespace-sexp)
-(define-key scheme-mode-map (kbd "C-M-z") 'collapse-whitespace-sexp)
-(global-set-key (kbd "C-z") 'nuke-whitespace)
 
 ;;; ---------------------------------------------------------------------- bison
 
@@ -789,8 +755,6 @@ bracket is present"
  (interactive)
  (append-aspell-word (thing-at-point 'word)))
 
-(global-set-key (kbd "s-i") 'append-aspell-current)
-
 ;;; ------------------------------------------------------------------------ Mac
 
 (setq mac-option-key-is-meta nil)
@@ -849,6 +813,41 @@ bracket is present"
 (global-set-key (kbd "M-v") 'yank-pop)            ; paste previous
 (global-set-key [(super u)] 'string-inflection-my-style-cycle)
 
+(global-set-key (kbd "s-i") 'append-aspell-current) ; aspell word at cursor
+
+(global-set-key (kbd "C-c i") 'clang-format-region) ; clang-format
+(global-set-key (kbd "C-c u") 'clang-format-buffer)
+(global-set-key [C-M-tab] 'clang-format-region)
+
+(global-set-key (kbd "C-]") 'counsel-etags-find-tag-at-point)
+
+(define-key global-map (kbd "C-c o u") 'origami-undo) ; Origami
+(define-key global-map (kbd "C-c o r") 'origami-redo)
+(define-key global-map (kbd "C-c o t") 'origami-toggle-node)
+(define-key global-map (kbd "C-c o o") 'origami-open-all-nodes)
+(define-key global-map (kbd "C-c o q") 'origami-reset)
+
+(define-key global-map (kbd "C-c r") 'vr/replace)     ; Visual regexp
+(define-key global-map (kbd "C-c q") 'vr/query-replace)
+(define-key global-map (kbd "C-s") 'isearch-forward-regexp)  ;; C-M-r
+(define-key global-map (kbd "C-r") 'isearch-backward-regexp) ;; C-M-s
+
+;; Projectile-map
+(define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+;;; Shortcuts
+; C-c p f     => Find files in project
+; C-c p d     => Find directory in project
+; C-c p R     => Regenerate etags/gtags
+; C-c p b     => Switch to project buffer
+; C-c p g     => Grep the project
+; C-c p j     => Find a tag in the project
+; C-c p o     => Run multi-occur on project buffers
+
+; C-c p k     => Kill all project buffers
+; C-c p s     => Switch project
+
+; C-u C-c p f => Invalidate project cache before finding files
+
 ;; Navigation, press [f1] to mark a point, and then M-f1 to jump back to it
 (global-set-key [f1] (lambda ()(interactive) (point-to-register 1)))
 (global-set-key [(super f1)] (lambda ()(interactive) (jump-to-register 1)))
@@ -857,6 +856,7 @@ bracket is present"
 
 (global-set-key (kbd "TAB") 'indent-for-tab-command)
 (global-set-key [(super e)] 'eval-region)
+(global-set-key (kbd "M-e") 'eval-region)
 
 ;; Shift+Arrow to move between buffers
 (when (fboundp 'windmove-default-keybindings)
