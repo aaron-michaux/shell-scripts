@@ -366,8 +366,6 @@
   (string-inflection-insert
    (string-inflection-do-my-cycle-function (string-inflection-get-current-word))))
 
-(global-set-key (kbd "C-i") 'string-inflection-my-style-cycle)
-
 ;;; ----------------------------------------------------------------- Projectile
 
 (use-package projectile)
@@ -798,7 +796,7 @@ bracket is present"
 (setq mac-option-key-is-meta nil)
 (setq mac-command-key-is-meta t)
 (setq mac-command-modifier 'meta)
-(setq mac-option-modifier nil)
+(setq mac-option-modifier 'super)
 
 ;; read in PATH from .bashrc
 (if (not (getenv "TERM_PROGRAM"))
@@ -849,6 +847,7 @@ bracket is present"
 (global-set-key [(super c)] 'copy-region-as-kill) ; copy
 (global-set-key [(super v)] 'yank)                ; paste
 (global-set-key (kbd "M-v") 'yank-pop)            ; paste previous
+(global-set-key [(super u)] 'string-inflection-my-style-cycle)
 
 ;; Navigation, press [f1] to mark a point, and then M-f1 to jump back to it
 (global-set-key [f1] (lambda ()(interactive) (point-to-register 1)))
@@ -857,7 +856,7 @@ bracket is present"
 (global-set-key [(super f2)] (lambda ()(interactive) (jump-to-register 2)))
 
 (global-set-key (kbd "TAB") 'indent-for-tab-command)
-(global-set-key (kbd "M-e") 'eval-region)
+(global-set-key [(super e)] 'eval-region)
 
 ;; Shift+Arrow to move between buffers
 (when (fboundp 'windmove-default-keybindings)
