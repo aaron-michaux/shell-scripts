@@ -290,11 +290,6 @@
 #'completion--in-region)
               args)))
 
-; Which-key intgration
-(use-package which-key
-    :config
-    (which-key-mode))
-
 (add-hook 'c-mode-hook 'lsp)
 (add-hook 'c++-mode-hook 'lsp)
 
@@ -307,6 +302,17 @@
 
 (with-eval-after-load 'lsp-mode
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration))
+
+;;; -------------------------------------------------------------- Counsel Etags
+
+(use-package counsel-etags)
+
+;;; ------------------------------------------------------------------ Which Key
+
+; Which-key intgration
+(use-package which-key
+    :config
+    (which-key-mode))
 
 ;;; -------------------------------------------------------------------- Company
 
