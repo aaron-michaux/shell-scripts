@@ -318,6 +318,9 @@
   (setq counsel-etags-update-interval 60)
   (push "build" counsel-etags-ignore-directories))
 
+; Don't ask to reload tags file
+(setq tags-revert-without-query 1)
+
 ;;; ------------------------------------------------------------------ Which Key
 
 ; Which-key intgration
@@ -862,5 +865,5 @@ bracket is present"
 (when (fboundp 'windmove-default-keybindings)
   (windmove-default-keybindings))
 
-
+;; NOTE: use M-x view-lossage, to see the last few keystrokes. (RE: overwrite)
 
