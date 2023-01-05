@@ -814,6 +814,7 @@ bracket is present"
 (global-set-key [(super c)] 'copy-region-as-kill) ; copy
 (global-set-key [(super v)] 'yank)                ; paste
 (global-set-key (kbd "M-v") 'yank-pop)            ; paste previous
+(global-set-key [(super %)] 'query-replace)       ; mac queryreplace alternative
 (global-set-key [(super u)] 'string-inflection-my-style-cycle)
 
 (global-set-key (kbd "s-i") 'append-aspell-current) ; aspell word at cursor
