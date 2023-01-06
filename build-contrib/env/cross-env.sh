@@ -177,6 +177,7 @@ crosstool_setup()
     local LLVM_TOOLCHAIN="$3"
     local STDLIB="$4"
     local BUILD_CONFIG="$5"
+    local INSTALL_CONFIG="$6"
     
     if [ "$TOOLCHAIN" = "gcc" ] ; then
         export TOOLCHAIN="$GCC_TOOLCHAIN"
@@ -188,6 +189,10 @@ crosstool_setup()
     if ! test_in $BUILD_CONFIG "debug release asan usan tsan reldbg" ; then
         echo "Invalid build config: ${VALUE}" 1>&2
         exit 1
+    fi
+
+    if [ "$INSTALL_CONFIG" = "" ] ; then
+        INSTALL_CONFIG="$BUILD_CONFIG"
     fi
 
     if [ "${TOOLCHAIN:0:3}" = "gcc" ] ; then
@@ -213,16 +218,17 @@ crosstool_setup()
         --clang-installation="$LLVM_DIR"     \
         --stdlib="$STDLIB"                   \
         --build-config="$BUILD_CONFIG"       \
+        --install-config="$INSTALL_CONFIG"   \
         --toolchain="$([ "${TOOLCHAIN:0:3}" = "gcc" ] && echo "gcc" || echo "clang")"
     
     export TRIPLE="$(echo "$TRIPLE_LIST" | awk '{ print $1 }')"
     export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN_NAME}_${STDLIB}_${BUILD_CONFIG}"
     export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
-    export CFLAGS="-fPIC -O3 -isystem$PREFIX/include"
-    export CXXFLAGS="-fPIC -O3 -isystem$PREFIX/include $CXXLIB_FLAGS"
+    export CFLAGS="-fPIC $CPP_CONFIG_FLAGS -isystem$PREFIX/include"
+    export CXXFLAGS="-fPIC $CPP_CONFIG_FLAGS -isystem$PREFIX/include $CXXLIB_FLAGS"
     [ "$IS_LLVM" = "True" ] && LDFLAGS="-fuse-ld=lld " || LD_FLAGS=""
-    LDFLAGS+="-L$PREFIX/lib -Wl,-rpath,$PREFIX/lib"
+    LDFLAGS+="$CPP_CONFIG_LDFLAGS -L$PREFIX/lib -Wl,-rpath,$PREFIX/lib"
     export LDFLAGS="$CXXLIB_LDFLAGS $LDFLAGS $CXXLIB_LIBS"
     export LIBS="-lm -pthreads"   
     
@@ -337,6 +343,7 @@ parse_basic_args()
     PRINT_ENV="False"
     STDLIB="stdcxx"
     BUILD_CONFIG="release"
+    INSTALL_CONFIG=""
     GCC_VERSION="$DEFAULT_GCC_VERSION"
     LLVM_VERSION="$DEFAULT_LLVM_VERSION"
     export FORCE_INSTALL="False"
@@ -383,7 +390,7 @@ parse_basic_args()
         # Look up the current build config, see if it should be transformed
         MAPPING="$(echo "$BUILD_CONFIG_MAPPING" | tr ' ' '\n' | grep "${BUILD_CONFIG}:" | awk -F: '{ print $2 }')"
         if [ "$MAPPING" != "" ] ; then
-            BUILD_CONFIG="$MAPPING"
+            INSTALL_CONFIG="$MAPPING"
         fi
     fi
     
@@ -393,7 +400,7 @@ parse_basic_args()
             exit 1
         fi        
     else
-        crosstool_setup "$TOOLCHAIN" "$GCC_VERSION" "$LLVM_VERSION" "$STDLIB" "$BUILD_CONFIG"
+        crosstool_setup "$TOOLCHAIN" "$GCC_VERSION" "$LLVM_VERSION" "$STDLIB" "$BUILD_CONFIG" "$INSTALL_CONFIG"
     fi
 
     if [ "$PRINT_ENV" = "True" ] ; then

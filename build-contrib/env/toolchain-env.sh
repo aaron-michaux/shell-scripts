@@ -21,7 +21,8 @@ show_help()
       --gcc-installation=<directory>
       --clang-installation=<directory>
       --stdlib=<libcxx|stdcxx>
-      --build-config=<debug|release|asan|usan|tsan>
+      --build-config=<debug|release|asan|usan|tsan|reldbg>
+      --install-config=<debug|release|asan|usan|tsan|reldbg>  # eg, a `debug` build installs `tsan`
       --lto=<True|False>
       --coverage=<True|False>
       --unity=<True|False>
@@ -59,6 +60,7 @@ UNITY="False"
 BUILD_TESTS="False"
 BUILD_EXAMPLES="False"
 BENCHMARK="False"
+INSTALL_CONFIG=""
 
 for ARG in "$@" ; do
     LHS="$(echo "$ARG" | awk -F= '{ print $1 }')"
@@ -74,6 +76,7 @@ for ARG in "$@" ; do
     [ "$LHS" = "--clang-installation" ] && CLANG_INSTALLATION="$RHS" && continue
     [ "$LHS" = "--stdlib" ] && STDLIB="$RHS" && continue
     [ "$LHS" = "--build-config" ] && BUILD_CONFIG="$RHS" && continue
+    [ "$LHS" = "--install-config" ] && INSTALL_CONFIG="$RHS" && continue
     [ "$LHS" = "--lto" ] && LTO="$RHS" && continue
     [ "$LHS" = "--coverage" ] && COVERAGE="$RHS" && continue
     [ "$LHS" = "--unity" ] && UNITY="$RHS" && continue
@@ -83,6 +86,10 @@ for ARG in "$@" ; do
 
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done
+
+if [ "$INSTALL_CONFIG" = "" ] ; then
+    INSTALL_CONFIG="$BUILD_CONFIG"
+fi
 
 # ------------------------------------------------------------------------------------ sanity checks
 
@@ -102,6 +109,7 @@ test_in()
 test_in --toolchain $TOOL "gcc clang"
 test_in --stdlib $STDLIB "libcxx stdcxx"
 test_in --build-config $BUILD_CONFIG "'' debug release asan usan tsan reldbg"
+test_in --install-config $INSTALL_CONFIG "'' debug release asan usan tsan reldbg"
 test_in --lto $LTO "True False"
 test_in --coverage $COVERAGE "True False"
 test_in --unity $UNITY "True False"
@@ -273,7 +281,7 @@ elif [ "$STDLIB" = "libcxx" ] && [ "$CLANG_INSTALLATION" != "" ] ; then
 fi
 
 # -- The Build Directory
-UNIQUE_DIR="$(basename "$TOOLCHAIN_ROOT")-${STDLIB}-${BUILD_CONFIG}"
+UNIQUE_DIR="$(basename "$TOOLCHAIN_ROOT")-${STDLIB}-${INSTALL_CONFIG}"
 [ "$BUILD_TESTS" = "True" ] && UNIQUE_DIR="test-${UNIQUE_DIR}"
 [ "$LTO" = "True" ]         && UNIQUE_DIR="${UNIQUE_DIR}-lto"
 [ "$BENCHMARK" = "True" ]   && UNIQUE_DIR="bench-${UNIQUE_DIR}"
@@ -282,6 +290,34 @@ BUILD_DIR="/tmp/build-${USER}/${UNIQUE_DIR}/${TARGET}"
 
 # -- Make-env.inc file
 MAKE_ENV_INC_FILE=$BUILD_DIR/make-env.inc
+
+# -- Install prefix
+INSTALL_PREFIX=$ARCH_DIR/$(echo "$TRIPLE_LIST" | awk '{ print $1 }')_$(basename "$TOOLCHAIN_ROOT")_${STDLIB}_${INSTALL_CONFIG}
+
+DBG_FLAGS="-g3 -gdwarf-2 -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+CPP_CONFIG_FLAGS=""
+CPP_CONFIG_LDFLAGS=""
+if [ "$BUILD_CONFIG" = "asan" ] ; then
+    CPP_CONFIG_FLAGS="-O0 $DBG_FLAGS -fsanitize=address"
+    CPP_CONFIG_LDFLAGS=" -fsanitize=address"
+elif [ "$BUILD_CONFIG" = "usan" ] ; then
+    CPP_CONFIG_FLAGS="-O0 $DBG_FLAGS -fsanitize=undefined"
+    CPP_CONFIG_LDFLAGS=" -fsanitize=undefined"
+elif [ "$BUILD_CONFIG" = "tsan" ] ; then
+    CPP_CONFIG_FLAGS="-O0 $DBG_FLAGS -fsanitize=thread"
+    CPP_CONFIG_LDFLAGS=" -fsanitize=thread"
+elif [ "$BUILD_CONFIG" = "debug" ] ; then
+    CPP_CONFIG_FLAGS="-O0 $DBG_FLAGS"
+    CPP_CONFIG_LDFLAGS=""
+elif [ "$BUILD_CONFIG" = "release" ] ; then
+    CPP_CONFIG_FLAGS="-O3 -DNDEBUG"
+    CPP_CONFIG_LDFLAGS=""
+elif [ "$BUILD_CONFIG" = "reldbg" ] ; then
+    CPP_CONFIG_FLAGS="-O3 $DBG_FLAGS"
+    CPP_CONFIG_LDFLAGS=""
+else
+    echo "logic error: BUILD_CONFIG=$BUILD_CONFIG" 1>&2 && exit 1
+fi
 
 # -------------------------------------------------------------------------------------- End Actions
 
@@ -294,8 +330,9 @@ export TRIPLE_LIST="$TRIPLE_LIST"
 export TOOLCHAIN_ROOT=$TOOLCHAIN_ROOT
 export GCC_INSTALLATION=$GCC_INSTALLATION
 export CLANG_INSTALLATION=$CLANG_INSTALLATION
-export INSTALL_PREFIX=$ARCH_DIR/$(echo "$TRIPLE_LIST" | awk '{ print $1 }')_$(basename "$TOOLCHAIN_ROOT")_$STDLIB
+export INSTALL_PREFIX=$INSTALL_PREFIX
 export UNIQUE_DIR=$UNIQUE_DIR
+export BUILD_CONFIG=$BUILD_CONFIG
 export BUILD_DIR=$BUILD_DIR
 
 # Important files
@@ -317,6 +354,10 @@ export GCOV=$GCOV
 export LLD=$LLD
 export LLVM_COV=$LLVM_COV
 export LLVM_PROFDATA=$LLVM_PROFDATA
+
+# build-config variables
+export CPP_CONFIG_FLAGS=$CPP_CONFIG_FLAGS
+export CPP_CONFIG_LDFLAGS=$CPP_CONFIG_LDFLAGS
 
 # build variables
 export CXXLIB_FLAGS=$CXXLIB_FLAGS
