@@ -1,9 +1,5 @@
 #!/bin/bash
 
-set -e
-
-# ----------------------------------------------------------- Parse Command Line
-
 if (( $# != 1 )) || [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     cat <<EOF
 
@@ -17,60 +13,85 @@ fi
 FILE="$1"
 [ ! -f "$FILE" ] && echo "Could not find file '$FILE', Aborting." 1>&2 && exit 1
 
-# -------------------------------------------------------------------- Execution
+INFO="$(file "$FILE")"
 
+is_rar()
+{
+    echo "$INFO" | grep -q "RAR archive data" && return 0
+    return 1
+}
 
-if   [[ "$FILE" == *.tar.gz ]] || [[ "$FILE" == *.tgz ]] ; then
-    gunzip -dc "$FILE" | tar -xf -
-elif [[ "$FILE" == *.tar.bz2 ]] ; then
-    bunzip2 -dc "$FILE" | tar -xf -
-elif [[ "$FILE" == *.tar.xz ]] ; then
-    xz -dc "$FILE" | tar -xf -
-elif [[ "$FILE" == *.7z ]] ; then
-    7za x "$FILE"
-elif [[ "$FILE" == *.tar ]] ; then
-    cat "$FILE" | tar -xf -
-else
-    echo "Unknown file type: $FILE" 1>&2
-    exit 1
-fi
+is_tar()
+{
+    echo "$INFO" | grep -q "tar archive" && return 0
+    return 1
+}
 
-exit 0
+is_gzip()
+{
+    echo "$INFO" | grep -q "gzip compressed data" && return 0
+    return 1
+}
 
-    
-# EXTENSION="$(echo "$FILE" | awk -F . '{if (NF>1) { print $NF }}')"
-# CMP="cat"
+is_bzip2()
+{
+    echo "$INFO" | grep -q "bzip2 compressed data" && return 0
+    return 1
+}
 
-# case $EXTENSION in
-#     gz)
-#         gunzip -dc "$FILE" | tar -xf -
-# 	;;
-#     bz2)
-# 	bunzip2 -dc "$FILE" | tar -xf -
-# 	;;
-#     tgz)
-# 	gunzip -dc "$FILE" | tar -xf -
-# 	;;
-#     xz)
-# 	xz -dc "$FILE" | tar -xf -
-# 	;;
-#     tar)
-# 	cat "$FILE" | tar -xf -
-# 	;;
-#     7z)
-#         7za x "$FILE"
-#         ;;
-#     *)
-# 	echo "Unknown extension: '$EXTENSION', aborting" 1>&2 && exit 1
-# 	;;
-# esac
+is_xz()
+{
+    echo "$INFO" | grep -q "XZ compressed data" && return 0
+    return 1
+}
 
-# #[ "$EXTENSION" = "gz" ] && CMP="gunzip -dc"
-# #[ "$EXTENSION" = "bz2" ] && CMP="bunzip2 -dc"
-# #$CMP "$FILE" | tar -xf -
+is_tar_gz()
+{
+    if is_gzip "$FILE" ; then
+        [ "$(basename "$FILE" .tgz)" != "$(basename "$FILE")" ] && return 0
+        [ "$(basename "$FILE" .tar.gz)" != "$(basename "$FILE")" ] && return 0
+    fi
+    return 1
+}
 
-# exit $?
+is_tar_bz()
+{
+    [ "$(basename "$FILE" .tbz)" != "$(basename "$FILE")" ] && return 0
+    [ "$(basename "$FILE" .tar.bz2)" != "$(basename "$FILE")" ] && return 0
+    return 1
+}
 
+is_tar_xz()
+{
+    [ "$(basename "$FILE" .txz)" != "$(basename "$FILE")" ] && return 0
+    [ "$(basename "$FILE" .tar.xz)" != "$(basename "$FILE")" ] && return 0
+    return 1
+}
 
+is_7za()
+{
+    echo "$INFO" | grep -q "7-zip archive data" && return 0
+    return 1
+}
 
+is_zip()
+{
+    echo "$INFO" | grep -q "Zip archive data" && return 0
+    return 1 
+}
+
+is_tar_gz && gunzip  -dc "$FILE" | tar -xf - && exit 0
+is_tar_bz && bunzip2 -dc "$FILE" | tar -xf - && exit 0
+is_tar_xz && xz      -dc "$FILE" | tar -xf - && exit 0
+
+is_tar   && tar xvf "$FILE"   && exit 0
+is_gzip  && gzip -d  "$FILE"  && exit 0
+is_bzip2 && bzip2 -d "$FILE"  && exit 0
+is_xz    && xz -d "$FILE"     && exit 0
+is_zip   && unzip "$FILE"     && exit 0
+is_7za   && 7za x "$FILE"     && exit 0
+is_rar   && unrar x "$FILE"   && exit 0
+
+echo "Failed to unpack: $INFO"
+exit 1
 
