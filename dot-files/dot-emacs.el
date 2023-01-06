@@ -70,7 +70,7 @@
  '(inhibit-startup-screen t)
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(package-selected-packages
-   '(counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
+   '(bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -375,6 +375,10 @@
 ; Cache project index
 (setq projectile-enable-caching t)
 
+;;; ------------------------------------------------------------------ yaml mode
+
+(use-package yaml-mode)
+
 ;;; ----------------------------------------------------------------- Word Count
 
 (require 'wc-mode)
@@ -532,7 +536,7 @@ will be killed."
    (modern-c++-font-lock-global-mode t)
    (company-mode)
    (company-prescient-mode)
-   (flycheck-mode)
+   ;(flycheck-mode)
    )
 (add-hook 'c-mode-hook 'my-cpp-setup)
 (add-hook 'c++-mode-hook 'my-cpp-setup)
@@ -542,7 +546,7 @@ will be killed."
 
 ;;; --------------------------------------------------------------- clang format
 
-(require 'clang-format)
+(use-package clang-format)
 
 ;; (add-hook 'clang-format-buffer '(c-mode-hook c++-mode-hook))
 
@@ -687,6 +691,14 @@ bracket is present"
 (add-hook 'markdown-mode-hook 'visual-line-mode)
 (add-hook 'markdown-mode-hook 'flyspell-mode)
 
+;;; ---------------------------------------------------------------------- Bazel
+
+(use-package bazel)
+
+(add-to-list 'auto-mode-alist '("BUILD" . bazel-build-mode))
+(add-to-list 'auto-mode-alist '("WORKSPACE" . bazel-workspace-mode))
+(add-to-list 'auto-mode-alist '("\\.bzl\\'" . bazel-starlark-mode))
+
 ;;; -------------------------------------------------------------- column-marker
 ;; http://www.emacswiki.org/emacs/fill-column-indicator.el
 ;;(require 'fill-column-indicator)
@@ -784,6 +796,9 @@ bracket is present"
  (set-face-attribute 'default nil :height 132))
 (when (string= system-name "epb-work")
  (set-face-attribute 'default nil :height 200))
+(when (string= system-name "DWH7Y69M2G") ; broadcom mac laptop
+ (set-face-attribute 'default nil :height 120)
+ (setq clang-format-executable "/opt/homebrew/bin/clang-format"))
 
 
 (when window-system
@@ -791,7 +806,7 @@ bracket is present"
  (set-frame-size (selected-frame) 180 46))
 
 (global-set-key [(super w)] 'count-words)
-(global-set-key [(super f)] 'flyspell-mode)
+(global-set-key [(super f)] 'flycheck-mode)
 (global-set-key [(super k)] 'kill-this-buffer)
 (global-set-key [(super K)] 'kill-some-buffers)
 (global-set-key [(super v)] 'visual-line-mode)
