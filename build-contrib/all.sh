@@ -100,31 +100,33 @@ install_library()
 {
     local SCRIPT="$1"
     local SKIP="$2"
-    for TOOL in "gcc" "llvm" ; do
-        for STDLIB in "--libcxx" "--stdcxx" ; do
-            if [ "$TOOL" = "gcc" ] && [ "$STDLIB" = "--libcxx" ] ; then
-                # echo, let's not go there =)
-                continue
-            fi
-
-            if [ "$PLATFORM" = "macos" ] && [ "$TOOL" = "llvm" ] && [ "$STDLIB" = "--stdcxx" ] ; then
-                # TODO: figure out why there's linker errors
-                continue
-            fi
-
-            
-            if [ "$SKIP" = "${TOOL}${STDLIB}" ] ; then
-                echo "Skipping $SCRIPT for $SKIP, this combination does not build"
-            else
-                COMMAND="./$SCRIPT  $OPTIONS  $FORCE_LIBS  --with-gcc=$GCC_VERSION  --with-clang=$LLVM_VERSION  --toolchain=$TOOL  $STDLIB"
-                $COMMAND && SUCCESS="True" || SUCCESS="False"
-                if [ "$SUCCESS" = "False" ] ; then
-                    echo "$COMMAND" >> $TMPF
-                    EXIT_CODE=1
+    for CONFIG in "debug" "release" "tsan" "usan" "asan" "reldbg" ; do
+        for TOOL in "gcc" "llvm" ; do
+            for STDLIB in "--libcxx" "--stdcxx" ; do
+                if [ "$TOOL" = "gcc" ] && [ "$STDLIB" = "--libcxx" ] ; then
+                    # echo, let's not go there =)
+                    continue
                 fi
-            fi
+
+                if [ "$PLATFORM" = "macos" ] && [ "$TOOL" = "llvm" ] && [ "$STDLIB" = "--stdcxx" ] ; then
+                    # TODO: figure out why there's linker errors
+                    continue
+                fi
+
+                
+                if [ "$SKIP" = "${TOOL}${STDLIB}" ] ; then
+                    echo "Skipping $SCRIPT for $SKIP, this combination does not build"
+                else
+                    COMMAND="./$SCRIPT  $OPTIONS  $FORCE_LIBS  --with-gcc=$GCC_VERSION  --with-clang=$LLVM_VERSION  --toolchain=$TOOL  $STDLIB  --build-config=$CONFIG"
+                    $COMMAND && SUCCESS="True" || SUCCESS="False"
+                    if [ "$SUCCESS" = "False" ] ; then
+                        echo "$COMMAND" >> $TMPF
+                        EXIT_CODE=1
+                    fi
+                fi
+            done
         done
-    done            
+    done
 }
 
 install_library  build-google-benchmark.sh  

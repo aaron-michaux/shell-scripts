@@ -48,7 +48,7 @@ build()
 
 # ------------------------------------------------------------------------ parse
 
-parse_basic_args "$0" "UseToolchain" "$@"
+parse_basic_args "$0" "UseToolchain" "asan:debug tsan:debug usan:debug" "$@"
 
 # ----------------------------------------------------------------------- action
 

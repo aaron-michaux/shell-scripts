@@ -59,6 +59,7 @@ UNITY="False"
 BUILD_TESTS="False"
 BUILD_EXAMPLES="False"
 BENCHMARK="False"
+
 for ARG in "$@" ; do
     LHS="$(echo "$ARG" | awk -F= '{ print $1 }')"
     RHS="$(echo "$ARG" | awk -F= '{ print $2 }')"

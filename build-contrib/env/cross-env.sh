@@ -21,6 +21,7 @@ show_help_snippet()
       --with-gcc=<version>   Use this GCC version, for stdcxx, or the full toolchain
       --with-clang=<version> Use this Clang/LLVM version, for libcxx, or the full toolchain
       --toolchain=<value>    Could be "clang" or "gcc", or the full version, eg. gcc-12.2.0
+      --build-config=<debug|release|asan|usan|tsan|reldbg>
 
       --libcxx               Build with clang's libcxx
       --stdcxx               Build with gcc's libstdcxx
@@ -159,12 +160,23 @@ list_toolchains()
     fi
 }
 
+test_in()
+{
+    VALUE="$1"
+    LIST="$2"
+    for ARG in $LIST ; do
+        [ "$VALUE" = "$ARG" ] && return 0 || true
+    done
+    return 1
+}
+
 crosstool_setup()
 {
     local TOOLCHAIN="$1"
     local GCC_TOOLCHAIN="$2"
     local LLVM_TOOLCHAIN="$3"
     local STDLIB="$4"
+    local BUILD_CONFIG="$5"
     
     if [ "$TOOLCHAIN" = "gcc" ] ; then
         export TOOLCHAIN="$GCC_TOOLCHAIN"
@@ -172,6 +184,11 @@ crosstool_setup()
         export TOOLCHAIN="$LLVM_TOOLCHAIN"        
     fi
     ensure_toolchain_is_valid "$TOOLCHAIN"
+
+    if ! test_in $BUILD_CONFIG "debug release asan usan tsan reldbg" ; then
+        echo "Invalid build config: ${VALUE}" 1>&2
+        exit 1
+    fi
 
     if [ "${TOOLCHAIN:0:3}" = "gcc" ] ; then
         export CXXSTD="$GCC_CXXSTD"
@@ -184,15 +201,22 @@ crosstool_setup()
     export GCC_DIR="$(get_toolchain_dir $GCC_TOOLCHAIN)"
     export LLVM_DIR="$(get_toolchain_dir $LLVM_TOOLCHAIN)"
 
+    if [ "$PLATFORM" = "macos" ] ; then
+        TOOLCHAIN_NAME="$(major_version $TOOLCHAIN)"
+    else
+        TOOLCHAIN_NAME="$TOOLCHAIN"
+    fi
+    
     source "$(dirname "$BASH_SOURCE")/toolchain-env.sh"   \
         --gcc-suffix="-${GCC_MAJOR_VERSION}" \
         --gcc-installation="$GCC_DIR"        \
         --clang-installation="$LLVM_DIR"     \
         --stdlib="$STDLIB"                   \
+        --build-config="$BUILD_CONFIG"       \
         --toolchain="$([ "${TOOLCHAIN:0:3}" = "gcc" ] && echo "gcc" || echo "clang")"
     
     export TRIPLE="$(echo "$TRIPLE_LIST" | awk '{ print $1 }')"
-    export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN}_${STDLIB}"
+    export PREFIX="$ARCH_DIR/${TRIPLE}_${TOOLCHAIN_NAME}_${STDLIB}_${BUILD_CONFIG}"
     export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 
     export CFLAGS="-fPIC -O3 -isystem$PREFIX/include"
@@ -204,10 +228,10 @@ crosstool_setup()
     
     export STDLIB="$STDLIB"
     
-    [ ! -x "$CC" ] && echo "Failed to find CC=$CC" 1>&2 && exit 1 || true
-    [ ! -x "$CXX" ] && echo "Failed to find CXX=$CXX" 1>&2 && exit 1 || true
-    [ ! -x "$AR" ] && echo "Failed to find AR=$AR" 1>&2 && exit 1 || true
-    [ ! -x "$NM" ] && echo "Failed to find NM=$NM" 1>&2 && exit 1 || true
+    [ ! -x "$CC" ]     && echo "Failed to find CC=$CC" 1>&2         && exit 1 || true
+    [ ! -x "$CXX" ]    && echo "Failed to find CXX=$CXX" 1>&2       && exit 1 || true
+    [ ! -x "$AR" ]     && echo "Failed to find AR=$AR" 1>&2         && exit 1 || true
+    [ ! -x "$NM" ]     && echo "Failed to find NM=$NM" 1>&2         && exit 1 || true
     [ ! -x "$RANLIB" ] && echo "Failed to find RANLIB=$RANLIB" 1>&2 && exit 1 || true
     
     export CC="$CC"
@@ -299,6 +323,8 @@ parse_basic_args()
     shift
     local REQUIRE_TOOLCHAIN="$1"
     shift
+    local BUILD_CONFIG_MAPPING="$1"
+    shift
     
     (( $# == 0 )) && show_help && exit 0 || true
     for ARG in "$@" ; do
@@ -310,6 +336,7 @@ parse_basic_args()
     TOOLCHAIN=""
     PRINT_ENV="False"
     STDLIB="stdcxx"
+    BUILD_CONFIG="release"
     GCC_VERSION="$DEFAULT_GCC_VERSION"
     LLVM_VERSION="$DEFAULT_LLVM_VERSION"
     export FORCE_INSTALL="False"
@@ -329,6 +356,7 @@ parse_basic_args()
         [ "$LHS" = "--with-gcc" ]      && export GCC_VERSION="$RHS" && continue
         [ "$LHS" = "--with-llvm" ]     && export LLVM_VERSION="$RHS" && continue
         [ "$LHS" = "--with-clang" ]    && export LLVM_VERSION="$RHS" && continue
+        [ "$LHS" = "--build-config" ]  && export BUILD_CONFIG="$RHS" && continue
 
         [ "$ARG" = "--toolchain" ]     && export TOOLCHAIN="$1" && shift && continue
         [ "$LHS" = "--toolchain" ]     && export TOOLCHAIN="$RHS" && continue
@@ -351,13 +379,21 @@ parse_basic_args()
         export LLVM_VERSION="clang-$LLVM_VERSION"
     fi
 
+    if [ "$BUILD_CONFIG_MAPPING" != "" ] ; then
+        # Look up the current build config, see if it should be transformed
+        MAPPING="$(echo "$BUILD_CONFIG_MAPPING" | tr ' ' '\n' | grep "${BUILD_CONFIG}:" | awk -F: '{ print $2 }')"
+        if [ "$MAPPING" != "" ] ; then
+            BUILD_CONFIG="$MAPPING"
+        fi
+    fi
+    
     if [ "$TOOLCHAIN" = "" ] ; then
         if [ "$REQUIRE_TOOLCHAIN" = "True" ] || [ "$REQUIRE_TOOLCHAIN" = "UseToolchain" ]; then
             echo "Must specify a toolchain!" 1>&2
             exit 1
         fi        
     else
-        crosstool_setup "$TOOLCHAIN" "$GCC_VERSION" "$LLVM_VERSION" "$STDLIB"
+        crosstool_setup "$TOOLCHAIN" "$GCC_VERSION" "$LLVM_VERSION" "$STDLIB" "$BUILD_CONFIG"
     fi
 
     if [ "$PRINT_ENV" = "True" ] ; then
