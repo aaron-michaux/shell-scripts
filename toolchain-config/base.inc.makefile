@@ -147,6 +147,8 @@ endif
 # Include dependency files
 -include $(DEP_FILES)
 
+#$(error make-inc = $(MAKE_ENV_INC_FILE) CXX=$(CXXFLAGS_F))
+
 # This must appear before SILENT
 default: all
 
