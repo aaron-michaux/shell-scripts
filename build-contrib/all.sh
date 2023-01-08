@@ -139,14 +139,15 @@ install_library  build-fmt.sh
 install_library  build-ofats.sh             
 install_library  build-spdlog.sh
 install_library  build-icu.sh
-install_library  build-boost.sh             
+# install_library  build-boost.sh             
 install_library  build-ranges-ts.sh
 if [ "$PLATFORM" != "macos" ] ; then
     install_library  build-liburing.sh
 fi
-install_library  build-unifex.sh         
+# install_library  build-unifex.sh         
 install_library  build-grpc.sh            
-install_library  build-asio-grpc.sh         
+# install_library  build-asio-grpc.sh
+install_library  build-stdexec.sh
 
 if [ "$EXIT_CODE" != "0" ] ; then
     echo "Exit-Code = $EXIT_CODE, the following failed to build:"
