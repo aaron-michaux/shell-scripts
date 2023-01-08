@@ -474,6 +474,19 @@ will be killed."
                      filename))))))
   (message "Finished reverting buffers containing unmodified files."))
 
+;;; -------------------------------------------------- uniquify-all-lines-region
+
+(defun uniquify-all-lines-region (start end)
+ "Find duplicate lines in region START to END keeping first occurrence."
+ (interactive "*r")
+ (save-excursion
+  (let ((end (copy-marker end)))
+   (while
+     (progn
+      (goto-char start)
+      (re-search-forward "^\\(.*\\)\n\\(\\(.*\n\\)*\\)\\1\n" end t))
+    (replace-match "\\1\n\\2")))))
+
 ;;; ------------------------------------------------------------------ Debugging
 
 ;; Prevent GDB from stealing windows. Seriously emacs.
@@ -823,6 +836,7 @@ bracket is present"
 (global-set-key (kbd "S-C-<right>") 'enlarge-window-horizontally)
 (global-set-key (kbd "S-C-<down>") 'shrink-window)
 (global-set-key (kbd "S-C-<up>") 'enlarge-window)
+(global-set-key [(super s)] 'shell)
 (global-set-key [(super l)] 'save-all)            ; save-all, (super s) not work
 (global-set-key [(super z)] 'undo)                ; undo. Press C-r to make redo
 (global-set-key [(super x)] 'kill-region)         ; cut
