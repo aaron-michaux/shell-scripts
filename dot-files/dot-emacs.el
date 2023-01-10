@@ -887,6 +887,8 @@ bracket is present"
 (global-set-key [f2] (lambda ()(interactive) (point-to-register 2)))
 (global-set-key [(super f2)] (lambda ()(interactive) (jump-to-register 2)))
 
+
+
 (global-set-key (kbd "TAB") 'indent-for-tab-command)
 (global-set-key [(super e)] 'eval-region)
 (global-set-key (kbd "M-e") 'eval-region)
