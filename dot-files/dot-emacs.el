@@ -267,7 +267,8 @@
 
 ;;; ------------------------------------------------------------------------ LSP
 
-(use-package lsp-mode
+(defun setup-lsp ()
+ (use-package lsp-mode
   :init
   ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
   (setq lsp-keymap-prefix "C-c l")
@@ -280,8 +281,26 @@
          (lsp-mode . lsp-enable-which-key-integration))
   :commands lsp)
 
-; What is lsp-ui!
-(use-package lsp-ui :commands lsp-ui-mode)
+ (use-package lsp-ui :commands lsp-ui-mode)
+
+ (add-hook 'c-mode-hook 'lsp)
+ (add-hook 'c++-mode-hook 'lsp)
+
+ ;; The lsp server is now really easy to restart
+ (setq lsp-keep-workspace-alive nil)
+ (setq lsp-idle-delay 0.1)
+ (setq lsp-auto-guess-root t)
+
+ (with-eval-after-load 'lsp-mode
+  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)))
+
+(when 'true (setup-lsp))
+
+;;; ---------------------------------------------------------------------- Eglot
+; eglot is an alternative to LSP, in case I get sick of LSP
+; https://github.com/joaotavora/eglot
+
+;;; ---------------------------------------------------------------- Integration
 
 ; Vertigo integration
 (setq completion-in-region-function
@@ -291,18 +310,11 @@
 #'completion--in-region)
               args)))
 
-(add-hook 'c-mode-hook 'lsp)
-(add-hook 'c++-mode-hook 'lsp)
-
 ;; clangd is fast
 (setq gc-cons-threshold (* 100 1024 1024)
       read-process-output-max (* 1024 1024)
       company-idle-delay 0.0
-      company-minimum-prefix-length 1
-      lsp-idle-delay 0.1)
-
-(with-eval-after-load 'lsp-mode
-  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration))
+      company-minimum-prefix-length 1)
 
 ;;; -------------------------------------------------------------- Counsel Etags
 
@@ -376,7 +388,7 @@
 (setq projectile-sort-order 'recently-active)
 
 ; Cache project index
-(setq projectile-enable-caching t)
+;(setq projectile-enable-caching nil)
 
 ;;; ------------------------------------------------------------------ yaml mode
 
