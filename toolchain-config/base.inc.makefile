@@ -299,4 +299,6 @@ info:
 	@echo "$(SOURCES)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 	@echo "OBJECTS:"
 	@echo "$(OBJECTS)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
+	@echo "COMPDBS:"
+	@echo "$(COMPDBS)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 

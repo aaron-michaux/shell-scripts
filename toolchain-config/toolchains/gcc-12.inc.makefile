@@ -9,7 +9,7 @@ R_FLAGS:=-DRELEASE_BUILD -DNDEBUG
 O_FLAG:=-O3
 
 # Compiling for debugging
-GDB_FLAGS:=-g3 -gdwarf-2 -fno-omit-frame-pointer -fno-optimize-sibling-calls
+GDB_FLAGS:=-g -gdwarf-2 -fno-omit-frame-pointer -fno-optimize-sibling-calls
 
 # F_flags are for everything
 C_F_FLAGS:=-fPIC -fvisibility=hidden -fdiagnostics-color=always -fmax-errors=4
@@ -23,15 +23,15 @@ LTO_FLAGS:=-ffat-lto-objects
 LTO_LINK:=-fuse-linker-plugin -flto
 
 # asan
-ASAN_FLAGS:=-g3 -gdwarf-2 -DADDRESS_SANITIZE -fsanitize=address
+ASAN_FLAGS:=-g -gdwarf-2 -DADDRESS_SANITIZE -fsanitize=address
 ASAN_LINK:=-fsanitize=address
 
 # usan
-USAN_FLAGS:=-g3 -gdwarf-2 -DUNDEFINED_SANITIZE -fsanitize=undefined
+USAN_FLAGS:=-g -gdwarf-2 -DUNDEFINED_SANITIZE -fsanitize=undefined
 USAN_LINK:=-fsanitize=undefined
 
 # tsan
-TSAN_FLAGS:=-g3 -gdwarf-2 -DTHREAD_SANITIZE -fsanitize=thread -fPIE
+TSAN_FLAGS:=-g -gdwarf-2 -DTHREAD_SANITIZE -fsanitize=thread -fPIE
 TSAN_LINK:=-fsanitize=thread -fPIE
 
 # Coverage
