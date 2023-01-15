@@ -858,6 +858,8 @@ bracket is present"
 (global-set-key [(super %)] 'query-replace)       ; mac queryreplace alternative
 (global-set-key [(super u)] 'string-inflection-my-style-cycle)
 
+(global-set-key [(super r)] 'revert-buffer)
+
 (global-set-key (kbd "s-i") 'append-aspell-current) ; aspell word at cursor
 
 (global-set-key (kbd "C-c i") 'clang-format-region) ; clang-format
