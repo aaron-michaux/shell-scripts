@@ -825,7 +825,8 @@ bracket is present"
 (when (string= system-name "epb-work")
  (set-face-attribute 'default nil :height 200))
 (when (string= system-name "DWH7Y69M2G") ; broadcom mac laptop
- (set-face-attribute 'default nil :height 120)
+ (set-face-attribute 'default nil :height 150)
+ ; (set-face-attribute 'default nil :height 200) ; For laptop-only mode
  (setq clang-format-executable "/opt/homebrew/bin/clang-format"))
 
 
