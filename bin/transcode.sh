@@ -39,10 +39,6 @@ else
     CRF=27
 fi
 
-  
-
-# ffmpeg -i Infile.mp4 -map 0:v:0 -pix_fmt yuv420p10le -f yuv4mpegpipe -strict -1  - | SvtAv1EncApp -i stdin --preset 6 --keyint 240 --input-depth 10 --crf 30 --rc 0 --passes 1 --film-grain 0 -b Outfile.ivf
-
 # ---------------------------------------------------------------- Help
 
 show_help()
@@ -194,13 +190,19 @@ probe_info()
     ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=bit_rate,codec_name,duration,width,height,pix_fmt -sexagesimal "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.,,' | sed 's,",,g'
 }
 
+calc_codec()
+{
+    local F="$1"
+    probe_info "$F" | grep -E "^codec_name" | awk -F= '{ print $2 }'
+}
+
 calc_bitrate()
 {
     local F="$1"
     local BR="$(probe_info "$F" | grep -E "^bit_rate" | awk -F= '{ print $2 }')"
 
     if [ "$BR" -eq "$BR" 2>/dev/null ] ; then
-        echo "scale=0 ; $BR / 1024" | bc
+        echo "scale=0 ; $BR / 1000" | bc
         return 0
     fi
     local LINE="$(ffmpeg -nostdin -i "$F" 2>&1 | grep bitrate  | head -n 1)"
@@ -317,7 +319,7 @@ cat <<EOF
 
    Transcode Operation:
 
-      File:        '$IN_FILE', $IN_BITRATE (kbits/s)
+      File:        '$IN_FILE', $(calc_codec "$IN_FILE"), $IN_BITRATE (kbits/s)
       Output:      '$OUT_FILE', $QUALITY_MESSAGE
       Movie Length: $(calc_movie_length "$IN_FILE")
       Size:         $(du -sh "$IN_FILE" | awk '{ print $1 }')
