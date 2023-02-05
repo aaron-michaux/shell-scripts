@@ -149,7 +149,7 @@ is_on_white_list()
             if [ "$FILENAME" = "$MATCH" ] ; then
                 return 0
             fi
-        done < <(cat "$WHITELIST_F")
+        done < <(cat "$WHITELIST_F" ; echo)
     fi
     return 1
 }
