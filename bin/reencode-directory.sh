@@ -134,8 +134,10 @@ update_transcoded_counter()
 is_movie_file()
 {
     local FILENAME="$1"
-    [ "$(du -b "$FILENAME")" -lt "10240" 2>/dev/null ] && return 1
-    ffprobe "$FILENAME" 2>/dev/null 1>/dev/null && return 0
+    local INFO=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=codec_name -print_format csv=p=0 "$FILENAME" 2>/dev/null || echo "")
+    if [ "$INFO" != "ansi" ] && [ "$INFO" != "" ] ; then
+        return 0
+    fi
     return 1
 }
 
