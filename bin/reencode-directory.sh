@@ -14,6 +14,8 @@ MAX_COUNTER=0
 DESIRED_CODEC="hevc"
 CRF="27"
 
+CHECK_WHITELIST="False"
+
 TOTALS_F="$TMPD/totals"
 TRANSCODED_COUNTER_F="$TMPD/transcoded_counter"
 MANIFEST_F="$TMPD/manifest.text"
@@ -54,6 +56,13 @@ show_help()
       --crf <int>         Constant quality rate to use with codec; default is $CRF
       --max-bitrate <int> Do not encode desired-codec videos with bitrate less than this; default i $MAX_BITRATE (kb/s)
 
+   Utility Options
+
+      --check-whitelist   Check the passed whitelist:
+                           1. Do any files in the whitelist not exist in source?
+                           2. Have any files in the whitelist been transcoded to dest?
+
+
 EOF
 }
 
@@ -72,6 +81,7 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-c" ] || [ "$ARG" = "--code" ] && DESIRED_CODEC="$1" && shift && continue
     [ "$ARG" = "-crf" ] || [ "$ARG" = "--crf" ] && CRF="$1" && shift && continue
     [ "$ARG" = "-max-bitrate" ] || [ "$ARG" = "--max-bitrate" ] && MAX_BITRATE="$1" && shift && continue
+    [ "$ARG" = "--check-whitelist" ] && CHECK_WHITELIST="True" && continue
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done
 
@@ -133,8 +143,13 @@ is_on_white_list()
 {
     local FILENAME="$1"
     if [ -f "$WHITELIST_F" ] ; then
-        local PATTERN="$(echo "$FILENAME" | sed 's,\[,\\[,g' | sed 's,\],\\],g')"
-        cat "$WHITELIST_F" | grep -q "$PATTERN" && return 0
+        # local PATTERN="$(echo "$FILENAME" | sed 's,\[,\\[,g' | sed 's,\],\\],g')"
+        #cat "$WHITELIST_F" | grep -Ev '\#' | grep "$PATTERN" | while read MATCH ; do
+        cat "$WHITELIST_F" | while read MATCH ; do
+            if [ "$FILENAME" = "$MATCH" ] ; then
+               return 0
+            fi
+        done
     fi
     return 1
 }
@@ -329,7 +344,7 @@ examine_one()
     local CODEC="$(calc_codec "$FILENAME")"
     local BR="$(calc_bitrate "$FILENAME")"
     if [ "$CODEC" = "" ] || ! [ "$BR" -eq "$BR" 2>/dev/null ] ; then
-        echo "${COLOUR_ERROR}$PROCESS_DESC [ERROR]${COLOUR_CLEAR} probe_info '$FILENAME' returned: "
+        echo -e "${COLOUR_ERROR}$PROCESS_DESC [ERROR]${COLOUR_CLEAR} probe_info '$FILENAME' returned: "
         probe_info "$FILENAME" | tr '\n' ' '
         return 0
     fi
@@ -395,7 +410,37 @@ process_dir()
     done  < <(cat "$MANIFEST_F")
 }
 
-# -- ACTION!
+check_whitelist()
+{
+    # For every line in the white list:
+    #  1. Check to see if the file exists in source
+    #  2. Chcek to see if it's been transcoded...
+    echo "0" > "$TMPD/exit_code"
+    cat "$WHITELIST_F" | grep -Ev '^\#' | grep -Ev '^ *$' | while read FILENAME ; do
+        OUT_F="$(output_filename "$FILENAME")"
+
+        if [ ! -f "$INPUT_D/$FILENAME" ] ; then
+            echo -e "${COLOUR_ERROR}FileNotFound${COLOUR_CLEAR}: $FILENAME"
+            echo "1" > "$TMPD/exit_code"
+        fi
+        if [ -f "$OUT_F" ] ; then
+            echo -e "${COLOUR_ERROR}TargetEncoded${COLOUR_CLEAR}: $OUT_F"
+            echo "1" > "$TMPD/exit_code"
+        fi
+    done
+
+    echo "Checks done"
+    return "$(cat "$TMPD/exit_code")"
+}
+
+# -- ACTRION! Check the Whitelist
+
+if [ "$CHECK_WHITELIST" = "True" ] ; then
+    check_whitelist
+    exit $?
+fi
+
+# -- ACTION! Re-encode
 
 mkdir -p "$(dirname "$LOG_F")"    
 printf '\n\n\n# --------------------------------------------- START (%s)\n' "$(date)" | tee "$LOG_F"
