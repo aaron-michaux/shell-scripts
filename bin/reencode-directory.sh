@@ -145,13 +145,11 @@ is_on_white_list()
 {
     local FILENAME="$1"
     if [ -f "$WHITELIST_F" ] ; then
-        # local PATTERN="$(echo "$FILENAME" | sed 's,\[,\\[,g' | sed 's,\],\\],g')"
-        #cat "$WHITELIST_F" | grep -Ev '\#' | grep "$PATTERN" | while read MATCH ; do
-        cat "$WHITELIST_F" | while read MATCH ; do
+        while read MATCH ; do
             if [ "$FILENAME" = "$MATCH" ] ; then
-               return 0
+                return 0
             fi
-        done
+        done < <(cat "$WHITELIST_F")
     fi
     return 1
 }
@@ -318,7 +316,7 @@ examine_one()
     local JOB_COUNTER="$2"
 
     PROCESS_DESC="$(printf "[%0${#MANIFEST_SIZE}d/%d]" "$JOB_COUNTER" "$MANIFEST_SIZE")"
-
+    
     if is_on_white_list "$FILENAME" ; then
         printf "${COLOUR_WHITELIST}$PROCESS_DESC Skipping '%s', it's on the white-list!${COLOUR_CLEAR}\n" "$FILENAME"
         return 0
@@ -443,7 +441,6 @@ if [ "$CHECK_WHITELIST" = "True" ] ; then
 fi
 
 # -- ACTION! Re-encode
-
 mkdir -p "$(dirname "$LOG_F")"    
 printf '\n\n\n# --------------------------------------------- START (%s)\n' "$(date)" | tee "$LOG_F"
 echo "Input Directory:  $INPUT_D"     | tee "$LOG_F"
