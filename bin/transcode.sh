@@ -309,9 +309,11 @@ print_cmd()
     [ "$ENCODING" = "$AV1_LIB" ] && PIXFMT="-pix_fmt yuv420p10le" || PIXFMT=""
             
     if [ "$TWO_PASS" = "False" ] ; then
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame -b:a 192k -c:s mov_text -f mp4 $(printf %q "$OUT_FILE")"
+        
     else
         echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")"
+        
     fi
 }
 

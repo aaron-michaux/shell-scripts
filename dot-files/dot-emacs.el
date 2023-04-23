@@ -835,12 +835,12 @@ bracket is present"
  (set-frame-position (selected-frame) -30 10)
  (set-frame-size (selected-frame) 180 46))
 
-(global-set-key [(super w)] 'count-words)
-(global-set-key [(super f)] 'flycheck-mode)
-(global-set-key [(super k)] 'kill-this-buffer)
-(global-set-key [(super K)] 'kill-some-buffers)
-(global-set-key [(super v)] 'visual-line-mode)
-(global-set-key [(super p)] 'highlight-indent-guides-mode)
+(global-set-key [(hyper w)] 'count-words)
+(global-set-key [(hyper f)] 'flycheck-mode)
+(global-set-key [(hyper k)] 'kill-this-buffer)
+(global-set-key [(hyper K)] 'kill-some-buffers)
+(global-set-key [(hyper v)] 'visual-line-mode)
+(global-set-key [(hyper p)] 'highlight-indent-guides-mode)
 (global-set-key (kbd "C-;") 'comment-region)
 (global-set-key (kbd "C-:") 'uncomment-region)
 (global-set-key (kbd "C-+") 'text-scale-adjust)
@@ -850,17 +850,17 @@ bracket is present"
 (global-set-key (kbd "S-C-<right>") 'enlarge-window-horizontally)
 (global-set-key (kbd "S-C-<down>") 'shrink-window)
 (global-set-key (kbd "S-C-<up>") 'enlarge-window)
-(global-set-key [(super s)] 'shell)
-(global-set-key [(super l)] 'save-all)            ; save-all, (super s) not work
-(global-set-key [(super z)] 'undo)                ; undo. Press C-r to make redo
-(global-set-key [(super x)] 'kill-region)         ; cut
-(global-set-key [(super c)] 'copy-region-as-kill) ; copy
-(global-set-key [(super v)] 'yank)                ; paste
+(global-set-key [(hyper s)] 'shell)
+(global-set-key [(hyper l)] 'save-all)            ; save-all, (hyper s) not work
+(global-set-key [(hyper z)] 'undo)                ; undo. Press C-r to make redo
+(global-set-key [(hyper x)] 'kill-region)         ; cut
+(global-set-key [(hyper c)] 'copy-region-as-kill) ; copy
+(global-set-key [(hyper v)] 'yank)                ; paste
 (global-set-key (kbd "M-v") 'yank-pop)            ; paste previous
-(global-set-key [(super %)] 'query-replace)       ; mac queryreplace alternative
-(global-set-key [(super u)] 'string-inflection-my-style-cycle)
+(global-set-key [(hyper %)] 'query-replace)       ; mac queryreplace alternative
+(global-set-key [(hyper u)] 'string-inflection-my-style-cycle)
 
-(global-set-key [(super r)] 'revert-buffer)
+(global-set-key [(hyper r)] 'revert-buffer)
 
 (global-set-key (kbd "s-i") 'append-aspell-current) ; aspell word at cursor
 
@@ -899,14 +899,14 @@ bracket is present"
 
 ;; Navigation, press [f1] to mark a point, and then M-f1 to jump back to it
 (global-set-key [f1] (lambda ()(interactive) (point-to-register 1)))
-(global-set-key [(super f1)] (lambda ()(interactive) (jump-to-register 1)))
+(global-set-key [(hyper f1)] (lambda ()(interactive) (jump-to-register 1)))
 (global-set-key [f2] (lambda ()(interactive) (point-to-register 2)))
-(global-set-key [(super f2)] (lambda ()(interactive) (jump-to-register 2)))
+(global-set-key [(hyper f2)] (lambda ()(interactive) (jump-to-register 2)))
 
 
 
 (global-set-key (kbd "TAB") 'indent-for-tab-command)
-(global-set-key [(super e)] 'eval-region)
+(global-set-key [(hyper e)] 'eval-region)
 (global-set-key (kbd "M-e") 'eval-region)
 
 ;; Shift+Arrow to move between buffers
