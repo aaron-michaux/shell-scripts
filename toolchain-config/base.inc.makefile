@@ -43,7 +43,8 @@ TARGET_DIR?=build/$(UNIQUE_DIR)
 EXTRA_OBJECTS?=
 GEN_HEADERS?=
 DEB_LIBS?=
-GCMDIR:=$(BUILD_DIR)/gcm.cache
+GCM_DIR:=$(BUILD_DIR)/gcm.cache
+GCM_LINK:=$(CURDIR)/gcm.cache
 CPP_SOURCES:=$(filter %.cpp, $(SOURCES))
 CC_SOURCES:=$(filter %.cc, $(SOURCES))
 C_SOURCES:=$(filter %.c, $(SOURCES))
@@ -144,6 +145,13 @@ else
   SED:=sed
 endif
 
+# C++ Modules
+.PHONY: ensure_gcm_link
+ensure_gcm_link:
+	if [ ! -d "$(GCM_DIR)" ] ; then mkdir -p "$(GCM_DIR)" ; fi
+	if [ ! -L "$(GCM_LINK)" ] ; then rm -f "$(GCM_LINK)" ; ln -s "$(GCM_DIR)" "$(GCM_LINK)" ; fi
+include $(TOOLCHAIN_CONFIG_DIR)/sys-header_modules.inc.makefile
+
 # Include dependency files
 -include $(DEP_FILES)
 
@@ -162,7 +170,7 @@ $(UNITY_O): $(CPP_SOURCES)
 	mkdir -p $(dir $@)
 	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",' | $(CXX) -x c++ $(CXXFLAGS_F) -c - -o $@
 
-.PHONEY: unity_cpp
+.PHONY: unity_cpp
 unity_cpp: $(CPP_SOURCES)
 	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",'
 
@@ -172,19 +180,19 @@ $(TARGET_DIR)/$(TARGET): $(OBJECTS) | $(addprefix $(BUILD_DIR)/lib/, $(DEP_LIBS)
 	$(CXX) $^ $(LDFLAGS_F) -o $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.o: %.cpp | generated-headers
+$(BUILD_DIR)/%.o: %.cpp | generated_headers
 	@echo "$(BANNER)c++ $<$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CXX) -x c++ $(CXXFLAGS_F) -MMD -MF $@.d -c $< -o $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.o: %.cc | generated-headers
+$(BUILD_DIR)/%.o: %.cc | generated_headers
 	@echo "$(BANNER)c++ $<$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CXX) -x c++ $(CXXFLAGS_F) -MMD -MF $@.d -c $< -o $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.o: %.c | generated-headers
+$(BUILD_DIR)/%.o: %.c | generated_headers
 	@echo "$(BANNER)c $<$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_F) -MMD -MF $@.d -c $< -o $@
@@ -202,12 +210,12 @@ $(GEN_DIR)/%.grpc.pb.cc $(GEN_DIR)/%.grpc.pb.h: %.proto
 	$(PROTOC) -I $(dir $<) --grpc_out=$(dir $@) --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN) $<
 	@$(RECIPETAIL)
 
-.PHONY: generated-headers
-generated-headers: $(GEN_HEADERS)
+.PHONY: generated_headers
+generated_headers: $(GEN_HEADERS)
 
 clean:
 	@echo rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR)
-	@rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR) $(COMP_DATABASE) compile_commands.json
+	@rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR) $(COMP_DATABASE) $(GCM_LINK) compile_commands.json
 
 coverage: $(TARGET_DIR)/$(TARGET)
 	@echo "running target"
@@ -246,7 +254,7 @@ compile_commands.json: $(COMP_DATABASE)
 	ln $(COMP_DATABASE) $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.comp-db.json: %.cpp | generated-headers
+$(BUILD_DIR)/%.comp-db.json: %.cpp | generated_headers
 	@echo "$(BANNER)comp-db $<$(BANEND)"
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
@@ -256,7 +264,7 @@ $(BUILD_DIR)/%.comp-db.json: %.cpp | generated-headers
 	printf ",\n" >> $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.comp-db.json: %.cc | generated-headers
+$(BUILD_DIR)/%.comp-db.json: %.cc | generated_headers
 	@echo "$(BANNER)comp-db $<$(BANEND)"
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
@@ -266,7 +274,7 @@ $(BUILD_DIR)/%.comp-db.json: %.cc | generated-headers
 	printf ",\n" >> $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.comp-db.json: %.c | generated-headers
+$(BUILD_DIR)/%.comp-db.json: %.c | generated_headers
 	@echo "$(BANNER)comp-db $<$(BANEND)"
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
@@ -287,6 +295,7 @@ info:
 	@echo "PRODUCT:        $(TARGET_DIR)/$(TARGET)"
 	@echo "BUILD_DIR:      $(BUILD_DIR)"
 	@echo "INSTALL_PREFIX: $(INSTALL_PREFIX)"
+	@echo "CPPLIB_DIR:     $(CPPLIB_DIR)"
 	@echo "COMP_DATABASE:  $(COMP_DATABASE)"
 	@echo "BUILD_CONFIG:   $(BUILD_CONFIG)"
 	@echo "VERBOSE:        $(VERBOSE)"

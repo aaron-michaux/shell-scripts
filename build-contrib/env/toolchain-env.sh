@@ -239,6 +239,8 @@ elif [ "$STDLIB" = "stdcxx" ] && [ "$GCC_INSTALLATION" != "" ] ; then
     fi
     CXXLIB_LIBS+=" -L$CPP_LIB_TRIPLE_DIR -Wl,-rpath,$CPP_LIB_TRIPLE_DIR -lstdc++"
 
+    CPPLIB_DIR="$CPP_DIR"
+    
 elif [ "$STDLIB" = "libcxx" ] && [ "$CLANG_INSTALLATION" != "" ] ; then
     # --------------------------------------------------------------------------------------- libcxx
     TRIPLE=""
@@ -270,14 +272,16 @@ elif [ "$STDLIB" = "libcxx" ] && [ "$CLANG_INSTALLATION" != "" ] ; then
         echo "Failed to find clang libc++ directory: '$CPPLIB_DIR'" 1>&2 && exit 1
     fi
 
-    CXXLIB_FLAGS="-nostdinc++ -isystem$CPPINC_DIR/c++/v1 -isystem$CPPINC_DIR -isystem$PLATFORM_INC_DIR"
+    CPPLIB_DIR="$CPPINC_DIR/c++/v1"
+    CXXLIB_FLAGS="-nostdinc++ -isystem$CPPLIB_DIR -isystem$CPPINC_DIR -isystem$PLATFORM_INC_DIR"
     if [ "$TOOL" = "gcc" ] ; then
         CXXLIB_LDFLAGS="-nodefaultlibs"
         CXXLIB_LIBS="-L$CPPLIB_DIR -lc++ -lc++abi -Wl,-rpath,$CPPLIB_DIR -lpthread -lc -lm -lgcc_s -static-libgcc -lgcc -L/lib64 -l:ld-linux-x86-64.so.2"
     else
         CXXLIB_LDFLAGS="-nostdlib++"
         CXXLIB_LIBS="-L$CPPLIB_DIR -lc++ -lc++abi -Wl,-rpath,$CPPLIB_DIR -lpthread"
-    fi    
+    fi
+
 fi
 
 # -- The Build Directory
@@ -363,6 +367,9 @@ export CPP_CONFIG_LDFLAGS=$CPP_CONFIG_LDFLAGS
 export CXXLIB_FLAGS=$CXXLIB_FLAGS
 export CXXLIB_LDFLAGS=$CXXLIB_LDFLAGS
 export CXXLIB_LIBS=$CXXLIB_LIBS
+
+# CPPLIB_DIR is used to location module BMIs
+export CPPLIB_DIR=$CPPLIB_DIR
 
 EOF
 }

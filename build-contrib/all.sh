@@ -131,7 +131,7 @@ install_library()
 
 install_library  build-google-benchmark.sh  
 install_library  build-google-test.sh       
-install_library  build-catch.sh             
+# install_library  build-catch.sh             
 install_library  build-ctre.sh              
 install_library  build-expected.sh          
 install_library  build-gcem.sh              
