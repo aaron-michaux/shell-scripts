@@ -121,8 +121,8 @@
 
 ;;(load-theme 'zenburn t)
 (load-theme 'darcula t)
-;;(load-theme 'solarized-light t)
 (load-theme 'vscode-dark-plus t)
+;;(load-theme 'solarized-light t)
 
 ;; Nice red cursor
 (set-cursor-color "#ff0000")
@@ -267,7 +267,8 @@
 
 ;;; ------------------------------------------------------------------------ LSP
 
-(use-package lsp-mode
+(defun setup-lsp ()
+ (use-package lsp-mode
   :init
   ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
   (setq lsp-keymap-prefix "C-c l")
@@ -280,29 +281,45 @@
          (lsp-mode . lsp-enable-which-key-integration))
   :commands lsp)
 
-; What is lsp-ui!
-(use-package lsp-ui :commands lsp-ui-mode)
+ (use-package lsp-ui :commands lsp-ui-mode)
+
+ (add-hook 'c-mode-hook 'lsp)
+ (add-hook 'c++-mode-hook 'lsp)
+
+ ;; The lsp server is now really easy to restart
+ (setq lsp-keep-workspace-alive nil)
+ (setq lsp-idle-delay 0.1)
+ (setq lsp-auto-guess-root t)
+
+ (with-eval-after-load 'lsp-mode
+  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)))
+
+(when 'true (setup-lsp))
+
+;;; ---------------------------------------------------------------------- Eglot
+; eglot is an alternative to LSP, in case I get sick of LSP
+; https://github.com/joaotavora/eglot
+
+;;; -------------------------------------------------------------------- Company
+
+(use-package company)
+
+;;; ---------------------------------------------------------------- Integration
 
 ; Vertigo integration
-(setq completion-in-region-function
-      (lambda (&rest args)
-       (apply (if vertico-mode
-#'consult-completion-in-region
-#'completion--in-region)
-              args)))
-
-(add-hook 'c-mode-hook 'lsp)
-(add-hook 'c++-mode-hook 'lsp)
+;; (setq completion-in-region-function
+;;       (lambda (&rest args)
+;;        (apply (if vertico-mode
+;;                 #'consult-completion-in-region
+;;                 #'completion--in-region)
+;;               args)))
+(setq completion-in-region-function 'completion--in-region)
 
 ;; clangd is fast
 (setq gc-cons-threshold (* 100 1024 1024)
       read-process-output-max (* 1024 1024)
       company-idle-delay 0.0
-      company-minimum-prefix-length 1
-      lsp-idle-delay 0.1)
-
-(with-eval-after-load 'lsp-mode
-  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration))
+      company-minimum-prefix-length 1)
 
 ;;; -------------------------------------------------------------- Counsel Etags
 
@@ -327,10 +344,6 @@
 (use-package which-key
     :config
     (which-key-mode))
-
-;;; -------------------------------------------------------------------- Company
-
-(use-package company)
 
 ;;; ------------------------------------------------------------------- Flycheck
 
@@ -376,7 +389,7 @@
 (setq projectile-sort-order 'recently-active)
 
 ; Cache project index
-(setq projectile-enable-caching t)
+;(setq projectile-enable-caching nil)
 
 ;;; ------------------------------------------------------------------ yaml mode
 
@@ -813,7 +826,8 @@ bracket is present"
 (when (string= system-name "epb-work")
  (set-face-attribute 'default nil :height 200))
 (when (string= system-name "DWH7Y69M2G") ; broadcom mac laptop
- (set-face-attribute 'default nil :height 120)
+ (set-face-attribute 'default nil :height 150)
+ ; (set-face-attribute 'default nil :height 200) ; For laptop-only mode
  (setq clang-format-executable "/opt/homebrew/bin/clang-format"))
 
 
@@ -821,12 +835,12 @@ bracket is present"
  (set-frame-position (selected-frame) -30 10)
  (set-frame-size (selected-frame) 180 46))
 
-(global-set-key [(super w)] 'count-words)
-(global-set-key [(super f)] 'flycheck-mode)
-(global-set-key [(super k)] 'kill-this-buffer)
-(global-set-key [(super K)] 'kill-some-buffers)
-(global-set-key [(super v)] 'visual-line-mode)
-(global-set-key [(super p)] 'highlight-indent-guides-mode)
+(global-set-key [(hyper w)] 'count-words)
+(global-set-key [(hyper f)] 'flycheck-mode)
+(global-set-key [(hyper k)] 'kill-this-buffer)
+(global-set-key [(hyper K)] 'kill-some-buffers)
+(global-set-key [(hyper v)] 'visual-line-mode)
+(global-set-key [(hyper p)] 'highlight-indent-guides-mode)
 (global-set-key (kbd "C-;") 'comment-region)
 (global-set-key (kbd "C-:") 'uncomment-region)
 (global-set-key (kbd "C-+") 'text-scale-adjust)
@@ -836,15 +850,17 @@ bracket is present"
 (global-set-key (kbd "S-C-<right>") 'enlarge-window-horizontally)
 (global-set-key (kbd "S-C-<down>") 'shrink-window)
 (global-set-key (kbd "S-C-<up>") 'enlarge-window)
-(global-set-key [(super s)] 'shell)
-(global-set-key [(super l)] 'save-all)            ; save-all, (super s) not work
-(global-set-key [(super z)] 'undo)                ; undo. Press C-r to make redo
-(global-set-key [(super x)] 'kill-region)         ; cut
-(global-set-key [(super c)] 'copy-region-as-kill) ; copy
-(global-set-key [(super v)] 'yank)                ; paste
+(global-set-key [(hyper s)] 'shell)
+(global-set-key [(hyper l)] 'save-all)            ; save-all, (hyper s) not work
+(global-set-key [(hyper z)] 'undo)                ; undo. Press C-r to make redo
+(global-set-key [(hyper x)] 'kill-region)         ; cut
+(global-set-key [(hyper c)] 'copy-region-as-kill) ; copy
+(global-set-key [(hyper v)] 'yank)                ; paste
 (global-set-key (kbd "M-v") 'yank-pop)            ; paste previous
-(global-set-key [(super %)] 'query-replace)       ; mac queryreplace alternative
-(global-set-key [(super u)] 'string-inflection-my-style-cycle)
+(global-set-key [(hyper %)] 'query-replace)       ; mac queryreplace alternative
+(global-set-key [(hyper u)] 'string-inflection-my-style-cycle)
+
+(global-set-key [(hyper r)] 'revert-buffer)
 
 (global-set-key (kbd "s-i") 'append-aspell-current) ; aspell word at cursor
 
@@ -883,14 +899,14 @@ bracket is present"
 
 ;; Navigation, press [f1] to mark a point, and then M-f1 to jump back to it
 (global-set-key [f1] (lambda ()(interactive) (point-to-register 1)))
-(global-set-key [(super f1)] (lambda ()(interactive) (jump-to-register 1)))
+(global-set-key [(hyper f1)] (lambda ()(interactive) (jump-to-register 1)))
 (global-set-key [f2] (lambda ()(interactive) (point-to-register 2)))
-(global-set-key [(super f2)] (lambda ()(interactive) (jump-to-register 2)))
+(global-set-key [(hyper f2)] (lambda ()(interactive) (jump-to-register 2)))
 
 
 
 (global-set-key (kbd "TAB") 'indent-for-tab-command)
-(global-set-key [(super e)] 'eval-region)
+(global-set-key [(hyper e)] 'eval-region)
 (global-set-key (kbd "M-e") 'eval-region)
 
 ;; Shift+Arrow to move between buffers

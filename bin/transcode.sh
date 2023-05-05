@@ -1,12 +1,18 @@
 #!/bin/bash
 
+set -e
+set -o pipefail
+
 # ---------------------------------------------------------------------- Options
 
 F=
 OVERWRITE=0
 PRINT_BITRATE=0
-SERENITY=0
+PRINT_INFO=0
 BITRATE=2000
+USE_CRF="True"
+BITRATE_SPECIFIED="False"
+CRF_SPECIFIED="False"
 FORMAT=
 SS=00:00:00.000
 TO=
@@ -14,6 +20,24 @@ TT=
 O=
 VERBOSE=0
 MAX_W=0
+AV1_LIB=libaom-av1
+AV1_LIB=libsvtav1
+ENCODING=libx265
+TWO_PASS="False"
+PRESET="slow"
+
+# Set the default CRF
+if [ "$ENCODING" = "libx264" ] ; then
+    CRF=20
+elif [ "$ENCODING" = "libx265" ] ; then
+    CRF=27
+elif [ "$ENCODING" = "libsvtav1" ] ; then
+    CRF=30
+elif [ "$ENCODING" = "libaom-av1" ] ; then
+    CRF=30
+else
+    CRF=27
+fi
 
 # ---------------------------------------------------------------- Help
 
@@ -25,19 +49,27 @@ show_help()
 
    Options:
 
-      -i  <filename>    Input movie file
-      -y                Allow overwrite of output file
+      -i  <filename>    Input movie file.
+      -y                Allow overwrite of output file.
 
-      -p                Print the bitrate (in kb/s) and exit
-      -f  <format>      Output format, like 1024:768
+      -p                Print the bitrate (in kb/s) and exit.
+      --info            Print info and exit.
+      -f  <format>      Output format, like 1024:768.
       --mw <integer>    Maximum width of output. (Aspect ratio preserved.)
-      -b  <integer>     Set the bitrate, in kb/s. (An integer)
-      -s  <timestamp>   Start at timestamp 
-      -to <timestamp>   End at timestamp
-      -t  <seconds>     Encode duration (Incompatible with -to)
-      -v                Verbose
+      -b  <integer>     Set the bitrate, in kb/s. (An integer.)
+      --crf <integer>   Set the "contrant-rate-factor"; incompatible with bitrate.
+      -s  <timestamp>   Start at timestamp.
+      -to <timestamp>   End at timestamp.
+      -t  <seconds>     Encode duration. (Incompatible with -to.)
+      -v                Verbose.
+      --preset <string> Default is 'slow'
 
-      --serenity        Transcode on serenity
+      --h264            Use h264 encoding.
+      --h265,--hevc     Use h265 encoding.
+      --av1             Use av1  encoding.
+
+      --1-pass          Use 1-pass encoding
+      --2-pass          Use 2-pass encoding
 
    Examples:
 
@@ -49,23 +81,36 @@ show_help()
 EOF
 }
 
-for T in "$@" ; do
+while (( $# > 0 )) ; do
     ARG="$1"
     shift
     [ "$ARG" = "" ] && continue
     [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
-    [ "$ARG" = "-i" ] && F="$1" && shift && continue
-    [ "$ARG" = "-y" ] && OVERWRITE=1 && continue
-    [ "$ARG" = "-p" ] && PRINT_BITRATE=1 && continue
-    [ "$ARG" = "-f" ] && FORMAT="$1" && shift && continue
-    [ "$ARG" = "--mw" ] && MAX_W="$1" && shift && continue
-    [ "$ARG" = "-b" ] && BITRATE="$1" && shift && continue
-    [ "$ARG" = "-s" ] && SS="$1" && shift && continue
-    [ "$ARG" = "-t" ] && TT="$1" && shift && continue
+    [ "$ARG" = "-i" ]  && F="$1" && shift && continue
+    [ "$ARG" = "-y" ]  && OVERWRITE=1 && continue
+    [ "$ARG" = "-p" ]  && PRINT_BITRATE=1 && continue
+    [ "$ARG" = "--info" ] || [ "$ARG" = "-info" ]  && PRINT_INFO=1 && continue
+    [ "$ARG" = "-f" ]  && FORMAT="$1" && shift && continue
+    [ "$ARG" = "--mw" ] || [ "$ARG" = "-mw" ] && MAX_W="$1" && shift && continue
+    [ "$ARG" = "-b" ]  && BITRATE="$1" && USE_CRF="False" && BITRATE_SPECIFIED="True" && shift && continue
+    [ "$ARG" = "--crf" ] || [ "$ARG" = "-crf" ] && CRF="$1"  && USE_CRF="True"  && CRF_SPECIFIED="True" && shift && continue
+    [ "$ARG" = "--preset" ] || [ "$ARG" = "-preset" ] && PRESET="$1" && shift && continue
+    [ "$ARG" = "-s" ]  && SS="$1" && shift && continue
+    [ "$ARG" = "-t" ]  && TT="$1" && shift && continue
     [ "$ARG" = "-to" ] && TO="$1" && shift && continue
-    [ "$ARG" = "-v" ] && VERBOSE=1 && continue
-    [ "$ARG" = "--serenity" ] && SERENITY=1 && continue
-    O="$ARG"
+    [ "$ARG" = "-v" ]  && VERBOSE=1 && continue
+    [ "$ARG" = "--h264" ]   || [ "$ARG" = "-h264" ]   && ENCODING="libx264" && continue
+    [ "$ARG" = "--h265" ]   || [ "$ARG" = "-h265" ]   && ENCODING="libx265" && continue
+    [ "$ARG" = "--hevc" ]   || [ "$ARG" = "-hevc" ]   && ENCODING="libx265" && continue
+    [ "$ARG" = "--av1" ]    || [ "$ARG" = "-av1" ]    && ENCODING="$AV1_LIB" && continue
+    [ "$ARG" = "--1-pass" ] || [ "$ARG" = "-1-pass" ] && TWO_PASS="False" && continue
+    [ "$ARG" = "--2-pass" ] || [ "$ARG" = "-2-pass" ] && TWO_PASS="True"  && continue
+
+    if [ "$O" = "" ] ; then
+        O="$ARG"
+    else
+        echo "unexpected argument: '$ARG'" 1>&2 && exit 1
+    fi
 done
 
 ! [ -f "$F" ] && \
@@ -77,6 +122,9 @@ done
 ! [ "$BITRATE" -eq "$BITRATE" 2>/dev/null ] && \
     echo "Bitrate should be an integer: got '$BITRATE'" 1>&2 && \
     exit 1
+! [ "$CRF" -eq "$CRF" 2>/dev/null ] && \
+    echo "CRF should be an integer: got '$CRF'" 1>&2 && \
+    exit 1
 ! [ -f "$F" ] && \
     echo "Failed to find input file '$F', aborting." 1>&2 && \
     exit 1
@@ -86,17 +134,28 @@ done
 ! [ "$MAX_W" -eq "$MAX_W" 2>/dev/null ] && \
     echo "Max width (--mw) must be an integer, got '$MAX_W'" 1>&2 && \
     exit 1
-# [ "$MAX_W" -lt "32" 2>/dev/null ] && \
-#     echo "Max width (--mw) looks too small, got '$MAX_W'" 1>&2 && \
-#     exit 1
 ! [ "$MAX_W" = "0" ] && ! [ "$FORMAT" = "" ] && \
     echo "Cannot specify format and max-width at the same time" 1>&2 && \
     exit 1
-
 [ "$TT" != "" ] && [ "$TO" != "" ] && \
     echo "Cannot specify both -t and --to" 1>&2 && \
     exit 1
-
+[ "$USE_CRF" = "True" ] && [ "$TWO_PASS" = "True" ] && [ "$BITRATE_SPECIFIED" = "False" ] && \
+    echo "--2-pass only makes sense when specifying a bitrate: use -b <integer>" 1>&2 && \
+    exit 1
+[ "$BITRATE_SPECIFIED" = "True" ] && [ "$CRF_SPECIFIED" = "True" ] && \
+    echo "Specify --crf <integer>, or -b <integer> but not both" 1>&2 && \
+    exit 1
+[ "$ENCODING" = "$AV1_LIB" ] && [ "$TWO_PASS" = "True" ] && \
+    echo "Two-pass with $ENCODING not yet set up, sorry" 1>&2 && \
+    exit 1
+[ "$ENCODING" = "$AV1_LIB" ] && ! which SvtAv1EncApp 1>/dev/null && \
+    echo "Could not find av1 binary on path: SvtAv1EncApp" 1>&2 && \
+    exit 1
+[ ! -d "$(dirname "$OUT_FILE")" ] && \
+    echo "Output directory does not exist: $(cd "$(dirname "$OUT_FILE")" ; pwd)" 1>&2 && \
+    exit 1
+                                                                        
 # ------------------------------------------------------------------------------
 
 PPWD="$(cd "$(dirname "$0")" ; pwd)"
@@ -110,7 +169,12 @@ cleanup()
 
 absfilename()
 {
-    echo "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+    local FILENAME="$1"
+    if [ "${FILENAME:0:1}" = "/" ] ; then
+        echo "$FILENAME"
+        return 0
+    fi
+    echo "$(cd "$(dirname "$FILENAME")"; pwd -P)/$(basename "$FILENAME")"
 }
 
 extension()
@@ -120,17 +184,42 @@ extension()
     echo "$EXT"
 }
 
+probe_info()
+{
+    local FILENAME="$1"
+    ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=bit_rate,codec_name,duration,width,height,pix_fmt -sexagesimal "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.,,' | sed 's,",,g'
+}
+
+calc_codec()
+{
+    local F="$1"
+    probe_info "$F" | grep -E "^codec_name" | awk -F= '{ print $2 }'
+}
+
 calc_bitrate()
 {
-    F="$1"
-    LINE="$(ffmpeg -nostdin -i "$F" 2>&1 | grep bitrate  | head -n 1)"
-    RATE="$(echo "$LINE" | awk '{ print $6 }')"
-    UNIT="$(echo "$LINE" | awk '{ print $7 }')"
+    local F="$1"
+    local BR="$(probe_info "$F" | grep -E "^bit_rate" | awk -F= '{ print $2 }')"
 
-    [ "$UNIT" != "kb/s" ] && \
-        echo "unknown units: $LINE, UNIT='$UNIT'" 1>&2 && \
+    if [ "$BR" -eq "$BR" 2>/dev/null ] ; then
+        echo "scale=0 ; $BR / 1000" | bc
+        return 0
+    fi
+    local LINE="$(ffmpeg -nostdin -i "$F" 2>&1 | grep bitrate  | head -n 1)"
+    local RATE="$(echo "$LINE" | awk '{ print $6 }')"
+    local UNIT="$(echo "$LINE" | awk '{ print $7 }')"
+    if [ "$UNIT" != "kb/s" ] ; then
+        echo "Could not calculate birate, unknown unit: '$UNIT' in line '$LINE'" 1>&2
         exit 1
+    fi
     echo "$RATE"
+}
+
+calc_movie_length()
+{
+    F="$1"
+    local F="$1"
+    probe_info "$F" | grep -E "^duration" | awk -F= '{ print $2 }'
 }
 
 # Convert a timestamp to seconds
@@ -162,13 +251,15 @@ IN_FILE="$(absfilename "$F")"
 SS_OPT=""
 TT_OPT=""
 FMT_OPT=""
-QUIET="-loglevel quiet"
+QUIET="-v quiet"
 [ "$SS" != "" ] && SS_OPT="-ss $SS"
 [ "$TT" != "" ] && TT_OPT="-t $TT"
 [ "$TO" != "" ] && TT_OPT="-t $(ts_diff $SS $TO)"
 [ "$FORMAT" != "" ] && FMT_OPT="-vf scale=$FORMAT"
 [ "$VERBOSE" = "1" ] && QUIET=""
 [ "$MAX_W" != "0" ] && FMT_OPT="-vf \"scale='min($MAX_W,iw)':-2\""
+[ "$ENCODING" = "libx264" ] && PASS1="-pass 1" && PASS2="-pass 2"
+[ "$ENCODING" = "libx265" ] && PASS1="-x265-params pass=1" && PASS2="-x265-params pass=2"
 
 # Check the extension of $OUT_FILE
 [ "$(extension "$O")" != "mp4" ] && [ "$(extension "$O")" != "mkv" ] && [ "$PRINT_BITRATE" != "1" ] && \
@@ -188,39 +279,83 @@ if [ "$PRINT_BITRATE" = "1" ] ; then
     exit 0
 fi
 
+[ "$USE_CRF" = "True" ] && QUALITY_MESSAGE="CRF=$CRF" || QUALITY_MESSAGE="$BITRATE (kbits/s)"
+[ "$USE_CRF" = "True" ] && QUALITY_ARG="-crf $CRF"    || QUALITY_ARG="-b:v ${BITRATE}k"
+[ "$QUIET" != "" ] && [ "$ENCODING" = "libx265" ] && QUIET_PARAM="-x265-params log-level=none" || QUIET_PARAM=""
+
+preset_arg()
+{
+    if [ "$ENCODING" = "$AV1_LIB" ] ; then
+        [ "$PRESET" = "ultrafast" ] && echo 13 && return 0 || true
+        [ "$PRESET" = "superfast" ] && echo 12 && return 0 || true
+        [ "$PRESET" = "veryfast" ] && echo 11 && return 0 || true
+        [ "$PRESET" = "faster" ] && echo 10 && return 0 || true
+        [ "$PRESET" = "fast" ] && echo 9 && return 0 || true
+        [ "$PRESET" = "medium" ] && echo 8 && return 0 || true
+        [ "$PRESET" = "slow" ] && echo 7 && return 0 || true
+        [ "$PRESET" = "slower" ] && echo 5 && return 0 || true
+        [ "$PRESET" = "veryslow" ] && echo 3 && return 0 || true
+        [ "$PRESET" = "placebo" ] && echo 0 && return 0 || true
+    else
+        echo "$PRESET"
+        return 0
+    fi
+    echo "Invalid preset=$PRESET" 1>&2
+    exit 1
+}
+
+print_cmd()
+{
+    [ "$ENCODING" = "$AV1_LIB" ] && PIXFMT="-pix_fmt yuv420p10le" || PIXFMT=""
+            
+    if [ "$TWO_PASS" = "False" ] ; then
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame -b:a 192k -c:s mov_text -f mp4 $(printf %q "$OUT_FILE")"
+        
+    else
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")"
+        
+    fi
+}
+
 cat <<EOF
 
    Transcode Operation:
 
-      File:        '$IN_FILE', $IN_BITRATE (kbits/s)
-      Output:      '$OUT_FILE', $BITRATE (kbits/s)
-      Format:      '$FMT_OPT'
-      Start:       '$SS'
-      End:         '$TO'
-      Duration:    '$TT'
-      Serenity:    '$SERENITY'
+      File:        '$IN_FILE', $(calc_codec "$IN_FILE"), $IN_BITRATE (kbits/s)
+      Output:      '$OUT_FILE', $QUALITY_MESSAGE
+      Movie Length: $(calc_movie_length "$IN_FILE")
+      Size:         $(du -sh "$IN_FILE" | awk '{ print $1 }')
+      Format:       $FMT_OPT
+      Start:        $SS
+      End:          $TO
+      Duration:     $TT
+      Preset:       $PRESET
+      Command:      $(print_cmd)
 
 EOF
 
 do_it()
 {
     cd "$TMPD"
-    echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")" | dash
-    return $?
+    print_cmd | dash && return 0
 
-    if [ "1" = "0" ] ; then
-        nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE" $TT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -pass 1 -an -f mp4 /dev/null \
-        && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -pass 2 -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE"
+    if [ "$VERBOSE" = "0" ] ; then
+        # Run the command without quiet, so
+        # end-user can see log messages
+        QUIET=""
+        print_cmd | dash
     fi
-
-    nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i "$IN_FILE"  $TT_OPT $FMT_OPT -c:v libx264 -preset slow -b:v ${BITRATE}k -c:a libmp3lame -b:a 192k -f mp4 "$OUT_FILE" 
-    RET=$?
+    return 1
 }
 
+if [ "$PRINT_INFO" = "1" ] ; then
+    exit 0
+else
+    do_it
+fi
 
-do_it
 exit $?
 
-
-
+# SvtAv1
+#ffmpeg -i Infile.mp4 -map 0:v:0 -pix_fmt yuv420p10le -f yuv4mpegpipe -strict -1  - | SvtAv1EncApp -i stdin --preset 6 --keyint 240 --input-depth 10 --crf 30 --rc 0 --passes 1 --film-grain 0 -b Outfile.ivf
 
