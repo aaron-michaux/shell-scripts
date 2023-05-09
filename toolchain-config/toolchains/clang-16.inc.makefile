@@ -13,7 +13,7 @@ GDB_FLAGS:=-g3 -gdwarf-2 -fno-omit-frame-pointer -fno-optimize-sibling-calls
 
 # F_flags are for everything
 C_F_FLAGS:=-fPIC -fvisibility=hidden -fdiagnostics-color=always -ferror-limit=4
-F_FLAGS:=$(C_F_FLAGS) -fmodules-ts -fvisibility-inlines-hidden
+F_FLAGS:=$(C_F_FLAGS) -fvisibility-inlines-hidden
 
 # Sanitizer flags for tsan and usan only. (Not asan)
 S_FLAGS:=-g -fno-omit-frame-pointer -fno-optimize-sibling-calls

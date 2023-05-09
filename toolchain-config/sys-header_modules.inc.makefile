@@ -15,4 +15,6 @@ iostream: $(GCM_DIR)/$(CPPLIB_DIR)/iostream.gcm
 string: $(GCM_DIR)/$(CPPLIB_DIR)/string.gcm
 vector: $(GCM_DIR)/$(CPPLIB_DIR)/vector.gcm
 set: $(GCM_DIR)/$(CPPLIB_DIR)/set.gcm
+span: $(GCM_DIR)/$(CPPLIB_DIR)/span.gcm
+optional: $(GCM_DIR)/$(CPPLIB_DIR)/optional.gcm
 

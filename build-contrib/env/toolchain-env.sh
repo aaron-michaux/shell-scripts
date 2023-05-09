@@ -272,8 +272,6 @@ elif [ "$STDLIB" = "libcxx" ] && [ "$CLANG_INSTALLATION" != "" ] ; then
         echo "Failed to find clang libc++ directory: '$CPPLIB_DIR'" 1>&2 && exit 1
     fi
 
-    CPPLIB_DIR="$CPPINC_DIR/c++/v1"
-    CXXLIB_FLAGS="-nostdinc++ -isystem$CPPLIB_DIR -isystem$CPPINC_DIR -isystem$PLATFORM_INC_DIR"
     if [ "$TOOL" = "gcc" ] ; then
         CXXLIB_LDFLAGS="-nodefaultlibs"
         CXXLIB_LIBS="-L$CPPLIB_DIR -lc++ -lc++abi -Wl,-rpath,$CPPLIB_DIR -lpthread -lc -lm -lgcc_s -static-libgcc -lgcc -L/lib64 -l:ld-linux-x86-64.so.2"
@@ -282,6 +280,9 @@ elif [ "$STDLIB" = "libcxx" ] && [ "$CLANG_INSTALLATION" != "" ] ; then
         CXXLIB_LIBS="-L$CPPLIB_DIR -lc++ -lc++abi -Wl,-rpath,$CPPLIB_DIR -lpthread"
     fi
 
+    # As used for including
+    CPPLIB_DIR="$CPPINC_DIR/c++/v1"
+    CXXLIB_FLAGS="-nostdinc++ -isystem$CPPLIB_DIR -isystem$CPPINC_DIR -isystem$PLATFORM_INC_DIR"
 fi
 
 # -- The Build Directory
