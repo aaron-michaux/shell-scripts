@@ -49,6 +49,7 @@ CPP_SOURCES:=$(filter %.cpp, $(SOURCES))
 CC_SOURCES:=$(filter %.cc, $(SOURCES))
 C_SOURCES:=$(filter %.c, $(SOURCES))
 OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cc, %.o, $(CC_SOURCES)) $(patsubst %.c, %.o, $(C_SOURCES)) $(EXTRA_OBJECTS))
+
 # Unity Build
 UNITY_CPP:=$(BUILD_DIR)/unity-file.cpp
 UNITY_O:=$(BUILD_DIR)/unity-file.o
@@ -57,7 +58,7 @@ ifeq ($(UNITY_BUILD), True)
    OBJECTS+=$(UNITY_O)
 else
    # Standard build, add cpp_sources
-   OBJECTS+=$(addprefix $(BUILD_DIR)/, $(patsubst %.cc, %.o, $(CPP_SOURCES)))
+   OBJECTS+=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.o, $(CPP_SOURCES)))
 endif
 DEP_FILES:=$(addsuffix .d, $(OBJECTS))
 COMPDBS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.comp-db.json, $(CPP_SOURCES)) $(patsubst %.cc, %.comp-db.json, $(CC_SOURCES)) $(patsubst %.c, %.comp-db.json, $(C_SOURCES)))
