@@ -180,11 +180,25 @@ $(UNITY_O): $(UNITY_CPP) | generated_headers
 	cat $^ | $(CXX) -x c++ $(CXXFLAGS_F) -c - -o $@
 	@$(RECIPETAIL)
 
+ifeq ($(patsubst %.a,,$(lastword $(TARGET))),)
 $(TARGET_DIR)/$(TARGET): $(OBJECTS) | $(addprefix $(BUILD_DIR)/lib/, $(DEP_LIBS))
-	@echo "$(BANNER)c++ $@$(BANEND)"
+	@echo "$(BANNER)ar $(notdir $@)$(BANEND)"
+	mkdir -p $(dir $@)
+	$(AR) -rcs $@ $^
+	$(RANLIB) $@
+	@$(RECIPETAIL)
+else ifeq ($(patsubst %.so,,$(lastword $(TARGET))),)
+	@echo "$(BANNER)so $(notdir $@)$(BANEND)"
+	mkdir -p $(dir $@)
+	$(CXX) -shared $^ $(LDFLAGS_F) -o $@
+	@$(RECIPETAIL)
+else
+$(TARGET_DIR)/$(TARGET): $(OBJECTS) | $(addprefix $(BUILD_DIR)/lib/, $(DEP_LIBS))
+	@echo "$(BANNER)link $(notdir $@)$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CXX) $^ $(LDFLAGS_F) -o $@
 	@$(RECIPETAIL)
+endif
 
 $(BUILD_DIR)/%.o: %.cpp | generated_headers
 	@echo "$(BANNER)c++ $<$(BANEND)"
@@ -310,6 +324,10 @@ info:
 	@echo "CFLAGS:         $(CFLAGS_F)"
 	@echo "CXXFLAGS:       $(CXXFLAGS_F)"
 	@echo "LDFLAGS:        $(LDFLAGS_F)"
+	@echo "NIGGLY_SOURCES:"
+	@echo "$(NIGGLY_SOURCES)"  | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
+	@echo "PROTOS:"
+	@echo "$(PROTOS)"  | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 	@echo "SOURCES:"
 	@echo "$(SOURCES)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 	@echo "OBJECTS:"
