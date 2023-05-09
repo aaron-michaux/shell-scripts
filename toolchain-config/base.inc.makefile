@@ -48,17 +48,20 @@ GCM_LINK:=$(CURDIR)/gcm.cache
 CPP_SOURCES:=$(filter %.cpp, $(SOURCES))
 CC_SOURCES:=$(filter %.cc, $(SOURCES))
 C_SOURCES:=$(filter %.c, $(SOURCES))
-OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.o, $(CPP_SOURCES)) $(patsubst %.cc, %.o, $(CC_SOURCES)) $(patsubst %.c, %.o, $(C_SOURCES)) $(EXTRA_OBJECTS))
+OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cc, %.o, $(CC_SOURCES)) $(patsubst %.c, %.o, $(C_SOURCES)) $(EXTRA_OBJECTS))
+# Unity Build
+UNITY_CPP:=$(BUILD_DIR)/unity-file.cpp
+UNITY_O:=$(BUILD_DIR)/unity-file.o
+ifeq ($(UNITY_BUILD), True)
+   SOURCES:=$(C_SOURCES) $(CC_SOURCES)
+   OBJECTS+=$(UNITY_O)
+else
+   # Standard build, add cpp_sources
+   OBJECTS+=$(addprefix $(BUILD_DIR)/, $(patsubst %.cc, %.o, $(CPP_SOURCES)))
+endif
 DEP_FILES:=$(addsuffix .d, $(OBJECTS))
 COMPDBS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.comp-db.json, $(CPP_SOURCES)) $(patsubst %.cc, %.comp-db.json, $(CC_SOURCES)) $(patsubst %.c, %.comp-db.json, $(C_SOURCES)))
 COMP_DATABASE:=$(TARGET_DIR)/compilation-database.json
-
-# Unity build
-UNITY_O:=$(BUILD_DIR)/unity-file.o
-ifeq ($(UNITY_BUILD), True)
-  SOURCES:=$(C_SOURCES)
-  OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.c, %.o, $(C_SOURCES))) $(UNITY_O)
-endif
 
 # Static libcpp
 CFLAGS_0:=-isystem$(INSTALL_PREFIX)/include
@@ -164,15 +167,17 @@ default: all
 $(ISVERBOSE).SILENT:
 
 # The build-unity rule
-.PHONY: $(UNITY_O) 
-$(UNITY_O): $(CPP_SOURCES)
+$(UNITY_CPP): $(CPP_SOURCES)
+	@echo '$(BANNER)unity.cpp $@$(BANEND)'
+	mkdir -p $(dir $@)
+	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",' > $@
+	@$(RECIPETAIL)
+
+$(UNITY_O): $(UNITY_CPP) | generated_headers
 	@echo '$(BANNER)unity-build $@$(BANEND)'
 	mkdir -p $(dir $@)
-	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",' | $(CXX) -x c++ $(CXXFLAGS_F) -c - -o $@
-
-.PHONY: unity_cpp
-unity_cpp: $(CPP_SOURCES)
-	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",'
+	cat $^ | $(CXX) -x c++ $(CXXFLAGS_F) -c - -o $@
+	@$(RECIPETAIL)
 
 $(TARGET_DIR)/$(TARGET): $(OBJECTS) | $(addprefix $(BUILD_DIR)/lib/, $(DEP_LIBS))
 	@echo "$(BANNER)c++ $@$(BANEND)"
