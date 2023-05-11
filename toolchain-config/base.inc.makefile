@@ -247,8 +247,11 @@ coverage_html: $(TARGET_DIR)/$(TARGET)
 	@echo "running target"
 	$(TARGET_DIR)/$(TARGET)
 	@echo "running lcov to generate coverage"
-	lcov --gcov-tool $(GCOV) -c --directory $(BUILD_DIR) --output-file $(TARGET_DIR)/app_info.info
-	genhtml $(TARGET_DIR)/app_info.info --output-directory build/html/coverage
+	lcov --gcov-tool $(GCOV) -c --follow --quiet -b $(CURDIR) --directory $(BUILD_DIR) --output-file $(TARGET_DIR)/app_info_raw.info
+	lcov --remove $(TARGET_DIR)/app_info_raw.info --quiet -o $(TARGET_DIR)/app_info.info '/usr/include/*' '/opt/*' "$(CURDIR)/testcases/*"
+	@echo "running genhtml"
+	genhtml $(TARGET_DIR)/app_info.info --quiet --prefix $(CURDIR)/src --output-directory build/html/coverage
+	@echo "coverage saved to $(CURDIR)/build/html/coverage/index.html"
 
 llvm_coverage_html: $(TARGETDIR)/$(TARGET)
 	@echo "running target"
