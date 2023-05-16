@@ -35,6 +35,7 @@ include $(TOOLCHAIN_ENV_INC_FILE)
 
 PROTOC:=$(INSTALL_PREFIX)/bin/protoc
 GRPC_CPP_PLUGIN:=$(INSTALL_PREFIX)/bin/grpc_cpp_plugin
+CLANG_TIDY:=$(TOOLCHAIN_ROOT)/bin/clang-tidy
 
 # -------------------------------------------------------------------------------------------- Logic
 
@@ -63,6 +64,9 @@ endif
 DEP_FILES:=$(addsuffix .d, $(OBJECTS))
 COMPDBS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.comp-db.json, $(CPP_SOURCES)) $(patsubst %.cc, %.comp-db.json, $(CC_SOURCES)) $(patsubst %.c, %.comp-db.json, $(C_SOURCES)))
 COMP_DATABASE:=$(TARGET_DIR)/compilation-database.json
+
+TIDY_REPORTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.tidy-out, $(CPP_SOURCES)) $(patsubst %.cc, %.tidy-out, $(CC_SOURCES)) $(patsubst %.c, %.tidy-out, $(C_SOURCES)))
+TIDY_REPORT:=$(TARGET_DIR)/tidy-report.text
 
 # Static libcpp
 CFLAGS_0:=-isystem$(INSTALL_PREFIX)/include
@@ -235,7 +239,7 @@ generated_headers: $(GEN_HEADERS)
 
 clean:
 	@echo rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR)
-	@rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR) $(COMP_DATABASE) $(GCM_LINK) compile_commands.json
+	@rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR) $(COMP_DATABASE) $(GCM_LINK) compile_commands.json tidy-report.text
 
 coverage: $(TARGET_DIR)/$(TARGET)
 	@echo "running target"
@@ -282,8 +286,8 @@ $(BUILD_DIR)/%.comp-db.json: %.cpp | generated_headers
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
 	printf "  \"file\":      \"%s\",\n" "$$(echo "$<" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"output\":    \"%s\" }\n" "$$(echo "$@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"output\":    \"%s\" }\n" "$$(echo "$(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
 	printf ",\n" >> $@
 	@$(RECIPETAIL)
 
@@ -292,8 +296,8 @@ $(BUILD_DIR)/%.comp-db.json: %.cc | generated_headers
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
 	printf "  \"file\":      \"%s\",\n" "$$(echo "$<" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"output\":    \"%s\" }\n" "$$(echo "$@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"output\":    \"%s\" }\n" "$$(echo "$(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
 	printf ",\n" >> $@
 	@$(RECIPETAIL)
 
@@ -302,9 +306,39 @@ $(BUILD_DIR)/%.comp-db.json: %.c | generated_headers
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
 	printf "  \"file\":      \"%s\",\n" "$$(echo "$<" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CC) -x c $(CFLAGS_F) -c $< -o $@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"output\":    \"%s\" }\n" "$$(echo "$@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CC) -x c $(CFLAGS_F) -c $< -o $(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"output\":    \"%s\" }\n" "$$(echo "$(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
 	printf ",\n" >> $@
+	@$(RECIPETAIL)
+
+tidy-report.text: $(TIDY_REPORT)
+	@echo '$(BANNER)$@$(BANEND)'
+	rm -f $@
+	ln $(TIDY_REPORT) $@
+	@$(RECIPETAIL)
+
+$(TIDY_REPORT): $(TIDY_REPORTS)
+	@echo '$(BANNER)$@$(BANEND)'
+	mkdir -p "$(dir $@)"
+	cat $(TIDY_REPORTS) > $@
+	@$(RECIPETAIL)
+
+$(BUILD_DIR)/%.tidy-out: %.cpp | generated_headers
+	@echo "$(BANNER)tidy $<$(BANEND)"
+	mkdir -p $(dir $@)
+	if $(CLANG_TIDY) $(CLANG_TIDY_FLAGS) $< -- -x c++ $(CXXFLAGS_F) 1>$@ 2>&1 ; then echo "" > $@ ; else cat "$@" && exit 1 ; fi
+	@$(RECIPETAIL)
+
+$(BUILD_DIR)/%.tidy-out: %.cc | generated_headers
+	@echo "$(BANNER)tidy $<$(BANEND)"
+	mkdir -p $(dir $@)
+	if $(CLANG_TIDY) $(CLANG_TIDY_FLAGS) $< -- -x c++ $(CXXFLAGS_F) 1>$@ 2>&1 ; then echo "" > $@ ; else cat "$@" && exit 1 ; fi
+	@$(RECIPETAIL)
+
+$(BUILD_DIR)/%.tidy-out: %.c | generated_headers
+	@echo "$(BANNER)tidy $<$(BANEND)"
+	mkdir -p $(dir $@)
+	if $(CLANG_TIDY) $(CLANG_TIDY_FLAGS) $< -- -x c $(CFLAGS_F)     1>$@ 2>&1 ; then echo "" > $@ ; else cat "$@" && exit 1 ; fi
 	@$(RECIPETAIL)
 
 
