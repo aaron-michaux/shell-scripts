@@ -139,6 +139,7 @@ install_library  build-fmt.sh
 install_library  build-ofats.sh             
 install_library  build-spdlog.sh
 install_library  build-icu.sh
+install_library  build-zpp-bits.sh
 # install_library  build-boost.sh             
 install_library  build-ranges-ts.sh
 if [ "$PLATFORM" != "macos" ] ; then
