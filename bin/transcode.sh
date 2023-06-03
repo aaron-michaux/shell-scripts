@@ -10,6 +10,7 @@ OVERWRITE=0
 PRINT_BITRATE=0
 PRINT_INFO=0
 BITRATE=2000
+AUDIO_SAMPLE_RATE=
 USE_CRF="True"
 BITRATE_SPECIFIED="False"
 CRF_SPECIFIED="False"
@@ -39,7 +40,7 @@ else
     CRF=27
 fi
 
-# ---------------------------------------------------------------- Help
+# ------------------------------------------------------------------------- Help
 
 show_help()
 {
@@ -187,7 +188,23 @@ extension()
 probe_info()
 {
     local FILENAME="$1"
-    ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=bit_rate,codec_name,duration,width,height,pix_fmt -sexagesimal "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.,,' | sed 's,",,g'
+    local DATAF="$TMPD/$FILENAME.ffprobe"
+    if [ ! -f "$DATAF" ] ; then
+        mkdir -p "$(dirname "$DATAF")"
+        ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=bit_rate,codec_name,duration,width,height,pix_fmt -sexagesimal "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.,,' | sed 's,",,g' > "$DATAF"
+    fi
+    cat "$DATAF"   
+}
+
+calc_audio_sample_rate()
+{
+    local FILENAME="$1"
+    local DATAF="$TMPD/$FILENAME.audio.ffprobe"
+    if [ ! -f "$DATAF" ] ; then
+        mkdir -p "$(dirname "$DATAF")"
+        ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams a:0 -show_entries stream=sample_rate "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.sample_rate=,,' | sed 's,",,g' > "$DATAF"
+    fi
+    cat "$DATAF"   
 }
 
 calc_codec()
@@ -252,7 +269,7 @@ SS_OPT=""
 TT_OPT=""
 FMT_OPT=""
 QUIET="-v quiet"
-[ "$SS" != "" ] && SS_OPT="-ss $SS"
+[ "$SS" != "" ] && [ "$SS" != "00:00:00.000" ] && SS_OPT="-ss $SS"
 [ "$TT" != "" ] && TT_OPT="-t $TT"
 [ "$TO" != "" ] && TT_OPT="-t $(ts_diff $SS $TO)"
 [ "$FORMAT" != "" ] && FMT_OPT="-vf scale=$FORMAT"
@@ -283,6 +300,14 @@ fi
 [ "$USE_CRF" = "True" ] && QUALITY_ARG="-crf $CRF"    || QUALITY_ARG="-b:v ${BITRATE}k"
 [ "$QUIET" != "" ] && [ "$ENCODING" = "libx265" ] && QUIET_PARAM="-x265-params log-level=none" || QUIET_PARAM=""
 
+IN_SAMPLE_RATE="$(calc_audio_sample_rate "$IN_FILE" 2>/dev/null)"
+if [ "$IN_SAMPLE_RATE" -eq "44100" ] || [ "$IN_SAMPLE_RATE" -eq "48000" ] ; then
+    SAMPLE_RATE_ARG=""
+else
+    SAMPLE_RATE_ARG="-ar 44100"
+    QUALITY_MESSAGE+=", resampled to 44100 Hz"
+fi
+
 preset_arg()
 {
     if [ "$ENCODING" = "$AV1_LIB" ] ; then
@@ -306,13 +331,18 @@ preset_arg()
 
 print_cmd()
 {
-    [ "$ENCODING" = "$AV1_LIB" ] && PIXFMT="-pix_fmt yuv420p10le" || PIXFMT=""
-            
+    [ "$ENCODING" = "$AV1_LIB" ] && PIXFMT="-pix_fmt yuv420p10le" || PIXFMT="-pix_fmt yuv420p"
+
+    # Notes:
+    #    "-strict -1" is for dealing with unusal sample rates in mp3s
+    #    "-ar 48000"  forces the audio sample rate to 48k
+    # 
+    
     if [ "$TWO_PASS" = "False" ] ; then
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame -b:a 192k -c:s mov_text -f mp4 $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -c:s mov_text -f mp4 $(printf %q "$OUT_FILE")"
         
     else
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame -b:a 192k -f mp4 $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f mp4 $(printf %q "$OUT_FILE")"
         
     fi
 }
@@ -321,7 +351,7 @@ cat <<EOF
 
    Transcode Operation:
 
-      File:        '$IN_FILE', $(calc_codec "$IN_FILE"), $IN_BITRATE (kbits/s)
+      File:        '$IN_FILE', $(calc_codec "$IN_FILE"), $IN_BITRATE (kbits/s), $IN_SAMPLE_RATE Hz
       Output:      '$OUT_FILE', $QUALITY_MESSAGE
       Movie Length: $(calc_movie_length "$IN_FILE")
       Size:         $(du -sh "$IN_FILE" | awk '{ print $1 }')
