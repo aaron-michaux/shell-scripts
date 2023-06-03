@@ -131,7 +131,7 @@ install_library()
 
 install_library  build-google-benchmark.sh  
 install_library  build-google-test.sh       
-install_library  build-catch.sh             
+# install_library  build-catch.sh             
 install_library  build-ctre.sh              
 install_library  build-expected.sh          
 install_library  build-gcem.sh              
@@ -139,6 +139,7 @@ install_library  build-fmt.sh
 install_library  build-ofats.sh             
 install_library  build-spdlog.sh
 install_library  build-icu.sh
+install_library  build-zpp-bits.sh
 # install_library  build-boost.sh             
 install_library  build-ranges-ts.sh
 if [ "$PLATFORM" != "macos" ] ; then

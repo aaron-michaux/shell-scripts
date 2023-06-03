@@ -121,8 +121,8 @@
 
 ;;(load-theme 'zenburn t)
 (load-theme 'darcula t)
-;;(load-theme 'solarized-light t)
 (load-theme 'vscode-dark-plus t)
+;;(load-theme 'solarized-light t)
 
 ;; Nice red cursor
 (set-cursor-color "#ff0000")
@@ -300,15 +300,20 @@
 ; eglot is an alternative to LSP, in case I get sick of LSP
 ; https://github.com/joaotavora/eglot
 
+;;; -------------------------------------------------------------------- Company
+
+(use-package company)
+
 ;;; ---------------------------------------------------------------- Integration
 
 ; Vertigo integration
-(setq completion-in-region-function
-      (lambda (&rest args)
-       (apply (if vertico-mode
-#'consult-completion-in-region
-#'completion--in-region)
-              args)))
+;; (setq completion-in-region-function
+;;       (lambda (&rest args)
+;;        (apply (if vertico-mode
+;;                 #'consult-completion-in-region
+;;                 #'completion--in-region)
+;;               args)))
+(setq completion-in-region-function 'completion--in-region)
 
 ;; clangd is fast
 (setq gc-cons-threshold (* 100 1024 1024)
@@ -339,10 +344,6 @@
 (use-package which-key
     :config
     (which-key-mode))
-
-;;; -------------------------------------------------------------------- Company
-
-(use-package company)
 
 ;;; ------------------------------------------------------------------- Flycheck
 

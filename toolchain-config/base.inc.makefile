@@ -35,6 +35,7 @@ include $(TOOLCHAIN_ENV_INC_FILE)
 
 PROTOC:=$(INSTALL_PREFIX)/bin/protoc
 GRPC_CPP_PLUGIN:=$(INSTALL_PREFIX)/bin/grpc_cpp_plugin
+CLANG_TIDY:=$(TOOLCHAIN_ROOT)/bin/clang-tidy
 
 # -------------------------------------------------------------------------------------------- Logic
 
@@ -43,21 +44,29 @@ TARGET_DIR?=build/$(UNIQUE_DIR)
 EXTRA_OBJECTS?=
 GEN_HEADERS?=
 DEB_LIBS?=
-GCMDIR:=$(BUILD_DIR)/gcm.cache
+GCM_DIR:=$(BUILD_DIR)/gcm.cache
+GCM_LINK:=$(CURDIR)/gcm.cache
 CPP_SOURCES:=$(filter %.cpp, $(SOURCES))
 CC_SOURCES:=$(filter %.cc, $(SOURCES))
 C_SOURCES:=$(filter %.c, $(SOURCES))
-OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.o, $(CPP_SOURCES)) $(patsubst %.cc, %.o, $(CC_SOURCES)) $(patsubst %.c, %.o, $(C_SOURCES)) $(EXTRA_OBJECTS))
+OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cc, %.o, $(CC_SOURCES)) $(patsubst %.c, %.o, $(C_SOURCES)) $(EXTRA_OBJECTS))
+
+# Unity Build
+UNITY_CPP:=$(BUILD_DIR)/unity-file.cpp
+UNITY_O:=$(BUILD_DIR)/unity-file.o
+ifeq ($(UNITY_BUILD), True)
+   SOURCES:=$(C_SOURCES) $(CC_SOURCES)
+   OBJECTS+=$(UNITY_O)
+else
+   # Standard build, add cpp_sources
+   OBJECTS+=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.o, $(CPP_SOURCES)))
+endif
 DEP_FILES:=$(addsuffix .d, $(OBJECTS))
 COMPDBS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.comp-db.json, $(CPP_SOURCES)) $(patsubst %.cc, %.comp-db.json, $(CC_SOURCES)) $(patsubst %.c, %.comp-db.json, $(C_SOURCES)))
 COMP_DATABASE:=$(TARGET_DIR)/compilation-database.json
 
-# Unity build
-UNITY_O:=$(BUILD_DIR)/unity-file.o
-ifeq ($(UNITY_BUILD), True)
-  SOURCES:=$(C_SOURCES)
-  OBJECTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.c, %.o, $(C_SOURCES))) $(UNITY_O)
-endif
+TIDY_REPORTS:=$(addprefix $(BUILD_DIR)/, $(patsubst %.cpp, %.tidy-out, $(CPP_SOURCES)) $(patsubst %.cc, %.tidy-out, $(CC_SOURCES)) $(patsubst %.c, %.tidy-out, $(C_SOURCES)))
+TIDY_REPORT:=$(TARGET_DIR)/tidy-report.text
 
 # Static libcpp
 CFLAGS_0:=-isystem$(INSTALL_PREFIX)/include
@@ -144,6 +153,13 @@ else
   SED:=sed
 endif
 
+# C++ Modules
+.PHONY: ensure_gcm_link
+ensure_gcm_link:
+	if [ ! -d "$(GCM_DIR)" ] ; then mkdir -p "$(GCM_DIR)" ; fi
+	if [ ! -L "$(GCM_LINK)" ] ; then rm -f "$(GCM_LINK)" ; ln -s "$(GCM_DIR)" "$(GCM_LINK)" ; fi
+include $(TOOLCHAIN_CONFIG_DIR)/sys-header_modules.inc.makefile
+
 # Include dependency files
 -include $(DEP_FILES)
 
@@ -156,35 +172,51 @@ default: all
 $(ISVERBOSE).SILENT:
 
 # The build-unity rule
-.PHONY: $(UNITY_O) 
-$(UNITY_O): $(CPP_SOURCES)
+$(UNITY_CPP): $(CPP_SOURCES)
+	@echo '$(BANNER)unity.cpp $@$(BANEND)'
+	mkdir -p $(dir $@)
+	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",' > $@
+	@$(RECIPETAIL)
+
+$(UNITY_O): $(UNITY_CPP) | generated_headers
 	@echo '$(BANNER)unity-build $@$(BANEND)'
 	mkdir -p $(dir $@)
-	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",' | $(CXX) -x c++ $(CXXFLAGS_F) -c - -o $@
+	cat $^ | $(CXX) -x c++ $(CXXFLAGS_F) -c - -o $@
+	@$(RECIPETAIL)
 
-.PHONEY: unity_cpp
-unity_cpp: $(CPP_SOURCES)
-	echo $^ | tr ' ' '\n' | sort | grep -Ev '^\s*$$' | sed 's,^,#include ",' | sed 's,$$,",'
-
+ifeq ($(patsubst %.a,,$(lastword $(TARGET))),)
 $(TARGET_DIR)/$(TARGET): $(OBJECTS) | $(addprefix $(BUILD_DIR)/lib/, $(DEP_LIBS))
-	@echo "$(BANNER)c++ $@$(BANEND)"
+	@echo "$(BANNER)ar $(notdir $@)$(BANEND)"
+	mkdir -p $(dir $@)
+	$(AR) -rcs $@ $^
+	$(RANLIB) $@
+	@$(RECIPETAIL)
+else ifeq ($(patsubst %.so,,$(lastword $(TARGET))),)
+	@echo "$(BANNER)so $(notdir $@)$(BANEND)"
+	mkdir -p $(dir $@)
+	$(CXX) -shared $^ $(LDFLAGS_F) -o $@
+	@$(RECIPETAIL)
+else
+$(TARGET_DIR)/$(TARGET): $(OBJECTS) | $(addprefix $(BUILD_DIR)/lib/, $(DEP_LIBS))
+	@echo "$(BANNER)link $(notdir $@)$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CXX) $^ $(LDFLAGS_F) -o $@
 	@$(RECIPETAIL)
+endif
 
-$(BUILD_DIR)/%.o: %.cpp | generated-headers
+$(BUILD_DIR)/%.o: %.cpp | generated_headers
 	@echo "$(BANNER)c++ $<$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CXX) -x c++ $(CXXFLAGS_F) -MMD -MF $@.d -c $< -o $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.o: %.cc | generated-headers
+$(BUILD_DIR)/%.o: %.cc | generated_headers
 	@echo "$(BANNER)c++ $<$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CXX) -x c++ $(CXXFLAGS_F) -MMD -MF $@.d -c $< -o $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.o: %.c | generated-headers
+$(BUILD_DIR)/%.o: %.c | generated_headers
 	@echo "$(BANNER)c $<$(BANEND)"
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_F) -MMD -MF $@.d -c $< -o $@
@@ -202,12 +234,12 @@ $(GEN_DIR)/%.grpc.pb.cc $(GEN_DIR)/%.grpc.pb.h: %.proto
 	$(PROTOC) -I $(dir $<) --grpc_out=$(dir $@) --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN) $<
 	@$(RECIPETAIL)
 
-.PHONY: generated-headers
-generated-headers: $(GEN_HEADERS)
+.PHONY: generated_headers
+generated_headers: $(GEN_HEADERS)
 
 clean:
 	@echo rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR)
-	@rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR) $(COMP_DATABASE) compile_commands.json
+	@rm -rf $(BUILD_DIR) $(TARGET_DIR) $(GEN_DIR) $(COMP_DATABASE) $(GCM_LINK) compile_commands.json tidy-report.text
 
 coverage: $(TARGET_DIR)/$(TARGET)
 	@echo "running target"
@@ -219,8 +251,11 @@ coverage_html: $(TARGET_DIR)/$(TARGET)
 	@echo "running target"
 	$(TARGET_DIR)/$(TARGET)
 	@echo "running lcov to generate coverage"
-	lcov --gcov-tool $(GCOV) -c --directory $(BUILD_DIR) --output-file $(TARGET_DIR)/app_info.info
-	genhtml $(TARGET_DIR)/app_info.info --output-directory build/html/coverage
+	lcov --gcov-tool $(GCOV) -c --follow --quiet -b $(CURDIR) --directory $(BUILD_DIR) --output-file $(TARGET_DIR)/app_info_raw.info
+	lcov --remove $(TARGET_DIR)/app_info_raw.info --quiet -o $(TARGET_DIR)/app_info.info '/usr/include/*' '/opt/*' "$(CURDIR)/testcases/*"
+	@echo "running genhtml"
+	genhtml $(TARGET_DIR)/app_info.info --quiet --prefix $(CURDIR)/src --output-directory build/html/coverage
+	@echo "coverage saved to $(CURDIR)/build/html/coverage/index.html"
 
 llvm_coverage_html: $(TARGETDIR)/$(TARGET)
 	@echo "running target"
@@ -246,34 +281,64 @@ compile_commands.json: $(COMP_DATABASE)
 	ln $(COMP_DATABASE) $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.comp-db.json: %.cpp | generated-headers
+$(BUILD_DIR)/%.comp-db.json: %.cpp | generated_headers
 	@echo "$(BANNER)comp-db $<$(BANEND)"
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
 	printf "  \"file\":      \"%s\",\n" "$$(echo "$<" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"output\":    \"%s\" }\n" "$$(echo "$@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"output\":    \"%s\" }\n" "$$(echo "$(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
 	printf ",\n" >> $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.comp-db.json: %.cc | generated-headers
+$(BUILD_DIR)/%.comp-db.json: %.cc | generated_headers
 	@echo "$(BANNER)comp-db $<$(BANEND)"
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
 	printf "  \"file\":      \"%s\",\n" "$$(echo "$<" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"output\":    \"%s\" }\n" "$$(echo "$@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CXX) -x c++ $(CXXFLAGS_F) -c $< -o $(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"output\":    \"%s\" }\n" "$$(echo "$(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
 	printf ",\n" >> $@
 	@$(RECIPETAIL)
 
-$(BUILD_DIR)/%.comp-db.json: %.c | generated-headers
+$(BUILD_DIR)/%.comp-db.json: %.c | generated_headers
 	@echo "$(BANNER)comp-db $<$(BANEND)"
 	mkdir -p $(dir $@)
 	printf "{ \"directory\": \"%s\",\n" "$$(echo "$(CURDIR)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" > $@
 	printf "  \"file\":      \"%s\",\n" "$$(echo "$<" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CC) -x c $(CFLAGS_F) -c $< -o $@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
-	printf "  \"output\":    \"%s\" }\n" "$$(echo "$@" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"command\":   \"%s\",\n" "$$(echo "$(CC) -x c $(CFLAGS_F) -c $< -o $(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
+	printf "  \"output\":    \"%s\" }\n" "$$(echo "$(patsubst %.comp-db.json,%.o,$@)" | sed 's,\\,\\\\,g' | sed 's,",\\",g')" >> $@
 	printf ",\n" >> $@
+	@$(RECIPETAIL)
+
+tidy-report.text: $(TIDY_REPORT)
+	@echo '$(BANNER)$@$(BANEND)'
+	rm -f $@
+	ln $(TIDY_REPORT) $@
+	@$(RECIPETAIL)
+
+$(TIDY_REPORT): $(TIDY_REPORTS)
+	@echo '$(BANNER)$@$(BANEND)'
+	mkdir -p "$(dir $@)"
+	cat $(TIDY_REPORTS) > $@
+	@$(RECIPETAIL)
+
+$(BUILD_DIR)/%.tidy-out: %.cpp | generated_headers
+	@echo "$(BANNER)tidy $<$(BANEND)"
+	mkdir -p $(dir $@)
+	if $(CLANG_TIDY) $(CLANG_TIDY_FLAGS) $< -- -x c++ $(CXXFLAGS_F) 1>$@ 2>&1 ; then echo "" > $@ ; else cat "$@" && exit 1 ; fi
+	@$(RECIPETAIL)
+
+$(BUILD_DIR)/%.tidy-out: %.cc | generated_headers
+	@echo "$(BANNER)tidy $<$(BANEND)"
+	mkdir -p $(dir $@)
+	if $(CLANG_TIDY) $(CLANG_TIDY_FLAGS) $< -- -x c++ $(CXXFLAGS_F) 1>$@ 2>&1 ; then echo "" > $@ ; else cat "$@" && exit 1 ; fi
+	@$(RECIPETAIL)
+
+$(BUILD_DIR)/%.tidy-out: %.c | generated_headers
+	@echo "$(BANNER)tidy $<$(BANEND)"
+	mkdir -p $(dir $@)
+	if $(CLANG_TIDY) $(CLANG_TIDY_FLAGS) $< -- -x c $(CFLAGS_F)     1>$@ 2>&1 ; then echo "" > $@ ; else cat "$@" && exit 1 ; fi
 	@$(RECIPETAIL)
 
 
@@ -287,6 +352,7 @@ info:
 	@echo "PRODUCT:        $(TARGET_DIR)/$(TARGET)"
 	@echo "BUILD_DIR:      $(BUILD_DIR)"
 	@echo "INSTALL_PREFIX: $(INSTALL_PREFIX)"
+	@echo "CPPLIB_DIR:     $(CPPLIB_DIR)"
 	@echo "COMP_DATABASE:  $(COMP_DATABASE)"
 	@echo "BUILD_CONFIG:   $(BUILD_CONFIG)"
 	@echo "VERBOSE:        $(VERBOSE)"
@@ -295,10 +361,15 @@ info:
 	@echo "CFLAGS:         $(CFLAGS_F)"
 	@echo "CXXFLAGS:       $(CXXFLAGS_F)"
 	@echo "LDFLAGS:        $(LDFLAGS_F)"
+	@echo "NIGGLY_SOURCES:"
+	@echo "$(NIGGLY_SOURCES)"  | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
+	@echo "PROTOS:"
+	@echo "$(PROTOS)"  | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 	@echo "SOURCES:"
 	@echo "$(SOURCES)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 	@echo "OBJECTS:"
 	@echo "$(OBJECTS)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
 	@echo "COMPDBS:"
 	@echo "$(COMPDBS)" | tr ' ' '\n' | grep -Ev '$$ *^' | sed 's,^,   ,'
+
 
