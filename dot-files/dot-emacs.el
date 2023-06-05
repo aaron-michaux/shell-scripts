@@ -273,7 +273,10 @@
   ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
   (setq lsp-keymap-prefix "C-c l")
   (setq lsp-dired-mode nil)
+  (setq lsp-ui-doc-enable nil)
   (setq lsp-headerline-breadcrumb-enable nil)
+  :bind (:map lsp-mode-map
+                ("C-c C-b" . lsp-ui-doc-glance))
   :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
          (c++-mode . lsp)
          (python-mode . lsp)
@@ -318,8 +321,8 @@
 ;; clangd is fast
 (setq gc-cons-threshold (* 100 1024 1024)
       read-process-output-max (* 1024 1024)
-      company-idle-delay 0.0
-      company-minimum-prefix-length 1)
+      company-idle-delay 3.0      
+      company-minimum-prefix-length 3)
 
 ;;; -------------------------------------------------------------- Counsel Etags
 
