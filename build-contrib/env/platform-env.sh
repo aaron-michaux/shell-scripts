@@ -8,8 +8,8 @@ export ARCH_DIR=/opt/arch
 
 # The default clang/gcc with the default cxxstd
 # Note: on macos, the major versions of these are installed using brew
-export DEFAULT_LLVM_VERSION="clang-15.0.6"
-export DEFAULT_GCC_VERSION="gcc-12.2.0"
+export DEFAULT_LLVM_VERSION="clang-16.0.2"
+export DEFAULT_GCC_VERSION="gcc-13.1.0"
 
 # Tool (host) compilers
 export HOST_CC=/usr/bin/gcc

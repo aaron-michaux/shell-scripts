@@ -23,11 +23,11 @@ show_help()
 
    Examples:
 
-      # Install gcc version 12.2.0 to $TOOLCHAINS_DIR
-      > $(basename $0) gcc-12.2.0
+      # Install gcc version 13.1.0 to $TOOLCHAINS_DIR
+      > $(basename $0) gcc-13.1.0
 
-      # Install clang version 15.0.6 to $TOOLCHAINS_DIR
-      > $(basename $0) clang-15.0.6
+      # Install clang version 16.0.2 to $TOOLCHAINS_DIR
+      > $(basename $0) clang-16.0.2
 
    Repos:
 
