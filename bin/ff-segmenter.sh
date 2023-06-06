@@ -272,7 +272,7 @@ EOF
     exit 0
 fi
 
-BITRATE="$(transcode.sh -i "$FILE" -p)"
+BITRATE="$(transcode.sh -i "$FILE" --print-bitrate)"
 I=0
 cat "$CUTLIST" | while read A B ; do
     TMP_OUTF="$TMPD/out_$(printf %02d $I).mkv"

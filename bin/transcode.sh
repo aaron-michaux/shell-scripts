@@ -8,7 +8,8 @@ set -o pipefail
 F=
 OVERWRITE=0
 PRINT_BITRATE=0
-PRINT_INFO=0
+PRINT_INFO="False"
+RUN_ENCODE="True"
 BITRATE=2000
 AUDIO_SAMPLE_RATE=
 USE_CRF="True"
@@ -54,7 +55,7 @@ show_help()
       -i  <filename>    Input movie file.
       -y                Allow overwrite of output file.
 
-      -p                Print the bitrate (in kb/s) and exit.
+      --print-bitrate   Print the bitrate (in kb/s) and exit.
       --info            Print info and exit.
       -f  <format>      Output format, like 1024:768.
       --mw <integer>    Maximum width of output. (Aspect ratio preserved.)
@@ -90,8 +91,8 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
     [ "$ARG" = "-i" ]  && F="$1" && shift && continue
     [ "$ARG" = "-y" ]  && OVERWRITE=1 && continue
-    [ "$ARG" = "-p" ]  && PRINT_BITRATE=1 && continue
-    [ "$ARG" = "--info" ] || [ "$ARG" = "-info" ]  && PRINT_INFO=1 && continue
+    [ "$ARG" = "--print-bitrate" ]  && PRINT_BITRATE=1 && continue
+    [ "$ARG" = "--info" ] || [ "$ARG" = "-info" ] || [ "$ARG" = "-p" ] && PRINT_INFO="True" && continue
     [ "$ARG" = "-f" ]  && FORMAT="$1" && shift && continue
     [ "$ARG" = "--mw" ] || [ "$ARG" = "-mw" ] && MAX_W="$1" && shift && continue
     [ "$ARG" = "-b" ]  && BITRATE="$1" && USE_CRF="False" && BITRATE_SPECIFIED="True" && shift && continue
@@ -115,10 +116,14 @@ while (( $# > 0 )) ; do
     fi
 done
 
+if [ "$PRINT_INFO" = "True" ] || [ "$PRINT_BITRATE" = "1" ] ; then
+    RUN_ENCODE="False"
+fi
+
 ! [ -f "$F" ] && \
     echo "Failed to find input file '$F'" 1>&2 && \
     exit 1
-[ "$O" = "" ] && [ "$PRINT_BITRATE" != "1" ] && \
+[ "$O" = "" ] && [ "$RUN_ENCODE" = "True" ] && \
     echo "Must specify an output file!" 1>&2 && \
     exit 1
 ! [ "$BITRATE" -eq "$BITRATE" 2>/dev/null ] && \
@@ -214,6 +219,13 @@ calc_codec()
     probe_info "$F" | grep -E "^codec_name" | awk -F= '{ print $2 }'
 }
 
+print_info()
+{
+    local FILENAME="$1"
+    probe_info "$FILENAME"
+    echo "sample_rate=$(calc_audio_sample_rate "$IN_FILE")"    
+}
+
 calc_bitrate()
 {
     local F="$1"
@@ -280,11 +292,16 @@ QUIET="-v quiet"
 [ "$ENCODING" = "libx265" ] && PASS1="-x265-params pass=1" && PASS2="-x265-params pass=2"
 
 # Check the extension of $OUT_FILE
-[ "$(extension "$O")" != "mp4" ] && [ "$(extension "$O")" != "mkv" ] && [ "$PRINT_BITRATE" != "1" ] && \
+[ "$(extension "$O")" != "mp4" ] && [ "$(extension "$O")" != "mkv" ] && [ "$RUN_ENCODE" = "True" ] && \
     echo "Output file extension must be 'mp4'. Got: '$O'" 1>&2 && \
     exit 1
 
 # ----------------------------------------------------------------------- Action
+
+if [ "$PRINT_INFO" = "True" ] ; then
+    print_info "$IN_FILE"
+    exit 0
+fi
 
 IN_BITRATE="$(calc_bitrate "$IN_FILE" 2>/dev/null)"
 SUCCESS="$?"
@@ -381,11 +398,7 @@ do_it()
     return 1
 }
 
-if [ "$PRINT_INFO" = "1" ] ; then
-    exit 0
-else
-    do_it
-fi
+do_it
 
 exit $?
 
