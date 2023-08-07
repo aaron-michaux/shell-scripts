@@ -70,7 +70,7 @@
  '(inhibit-startup-screen t)
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(package-selected-packages
-   '(plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
+   '(dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -153,6 +153,13 @@
 ;;; -------------------------------------------------------------- Indent Guides
 
 ;(require 'highlight-indent-guides)
+
+;;; -------------------------------------------------------- Display Ansi Colors
+
+(require 'ansi-color)
+(defun display-ansi-colors ()
+  (interactive)
+  (ansi-color-apply-on-region (point-min) (point-max)))
 
 ;;; --------------------------------------------------------------- Emacs server
 
@@ -398,6 +405,10 @@
 
 (use-package yaml-mode)
 
+;;; ------------------------------------------------------------ dockerfile-mode
+
+(require 'dockerfile-mode)
+
 ;;; ----------------------------------------------------------------- Word Count
 
 (require 'wc-mode)
@@ -593,6 +604,12 @@ will be killed."
   (when (eq major-mode 'c-mode) (clang-format-buffer)))
 
 (add-hook 'before-save-hook 'my-clang-format-before-save)
+
+(defun toggle-clang-format-before-save ()
+ (interactive)
+ (if before-save-hook   
+   (setq before-save-hook nil)
+   (add-hook 'before-save-hook 'my-clang-format-before-save)))
  
 ;;; ----------------------------------------------------------- Protocol Buffers
 
