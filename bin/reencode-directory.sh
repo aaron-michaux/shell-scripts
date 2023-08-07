@@ -3,7 +3,7 @@
 set -e
 set -o pipefail
 
-PPWD="$(cd "$(dirname "$0")/.." ; pwd -P)"
+PPWD="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd -P)"
 
 INPUT_D=""
 OUTPUT_D=""
@@ -18,6 +18,7 @@ KEEP_GOING="False"
 
 CHECK_WHITELIST="False"
 RECONCILE="False"
+PRINT_DATABASE="False"
 
 TOTALS_F="$TMPD/totals"
 TRANSCODED_COUNTER_F="$TMPD/transcoded_counter"
@@ -71,6 +72,8 @@ show_help()
 
       --reconcile         Movies files back from the encode directory to the source directory,
                           removing source files. (cp/rsync cannot be used because of file name changes.)
+  
+      --print-database    Prints our (csv) format data
 
 EOF
 }
@@ -93,6 +96,7 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-k" ] && KEEP_GOING="True" && continue
     [ "$ARG" = "--check-whitelist" ] && CHECK_WHITELIST="True" && continue
     [ "$ARG" = "--reconcile" ] && RECONCILE="True" && continue
+    [ "$ARG" = "--print-database" ] && PRINT_DATABASE="True" && continue
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done
 
@@ -102,6 +106,105 @@ done
     && echo "Whitelist file not found: '$WHITELIST_F'" 1>&2 && exit 1 || true
 
 LOG_F="$OUTPUT_D/log.text"
+
+# -- File info
+
+extension()
+{
+    local FILENAME="$1"
+    local EXT="$(echo "$FILENAME" | awk -F . '{if (NF>1) { print $NF }}')"
+    echo "$EXT"
+}
+
+extensionless()
+{
+    local FILENAME="$1"
+    local EXT="$(echo "$FILENAME" | awk -F . '{if (NF>1) { print $NF }}')"
+    if (( ${#EXT} > 0 )) ; then
+	echo "${FILENAME:0:$(expr ${#FILENAME} -  ${#EXT} - 1)}"
+    else
+	echo "$FILENAME"
+    fi
+}
+
+file_size()
+{
+    local FILENAME="$1"
+    du -b "$FILENAME" | awk '{ print $1 }'
+}
+
+delta_megabytes()
+{
+    local FILE_A="$1"
+    local FILE_B="$2"
+    echo "scale=3 ; ($(file_size "$FILE_A") - $(file_size "$FILE_B")) / (1024 * 1024)" | bc
+}
+
+is_reencoded()
+{
+    local FNAME="$1"
+    getfattr -n user.original_filename "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
+}
+
+reencode_was_attempted()
+{
+    local FNAME="$1"
+    getfattr -n user.encode_attempt_gain "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
+}
+
+perc_gain()
+{
+    local FNAME="$1"
+    
+    # This only makes sense for reencoded files
+    is_reencoded "$FNAME" || return 1
+
+    local SZ_0="$(getfattr -d "$FNAME" 2>/dev/null | grep "user.original_filesize" | awk -F= '{ print $2 }' | sed 's,",,g')"
+    local SZ_1="$(du -b "$FNAME" | awk '{ print $1 }')"
+    local DIFF="$(echo "scale=9 ; ($SZ_0 - $SZ_1) / (1024 * 1024 * 1024)" | bc)"
+    local PERC="$(echo "scale=2 ; ($SZ_0 - $SZ_1) / (0.01 * $SZ_0)" | bc)"
+
+    echo "$PERC"
+}
+
+absfilename()
+{
+    local FILENAME="$1"
+    if [ "${FILENAME:0:1}" = "/" ] ; then
+        echo "$FILENAME"
+        return 0
+    fi
+    echo "$(cd "$(dirname "$FILENAME")"; pwd -P)/$(basename "$FILENAME")"
+}
+
+homefilename()
+{
+    local FILENAME="$1"
+    local ABSFNAME="$(absfilename "$FILENAME")"
+    if [ "${ABSFNAME:0:$(expr ${#HOME} + 1)}" = "$HOME/" ] ; then
+        echo "${ABSFNAME:$(expr ${#HOME} + 1)}"
+    else
+        echo "$ABSFNAME"
+    fi
+}
+
+output_base_filename()
+{
+    local FILENAME="$1"
+    echo "$(dirname "$FILENAME")/$(extensionless "$(basename "$FILENAME")").mp4"
+}
+
+tmp_filename()
+{
+    local FILENAME="$1"
+    echo "$TMPD/$(output_base_filename "$FILENAME")"
+}
+
+output_filename()
+{
+    local FILENAME="$1"
+    echo "$OUTPUT_D/$(output_base_filename "$FILENAME")"
+}
 
 # -- Total
 
@@ -142,17 +245,34 @@ update_transcoded_counter()
 
 # -- Movie info
 
+cached_info()
+{
+    local FILENAME="$1"
+    local DATAF="$(extensionless "$TMPD/$FILENAME")._ci"
+    if [ ! -f "$DATAF" ] ; then
+        mkdir -p "$(dirname "$DATAF")"
+        local FILE_SIZE="$(du -b "$FILENAME" | awk '{ print $1 }')"
+        IS_MOVIE="True"
+        echo "filename=$(homefilename "$FILENAME")"              > "$DATAF"
+        echo "bytes=$FILE_SIZE"                                >> "$DATAF"
+        transcode.sh -i "$FILENAME" --info                     >> "$DATAF" || IS_MOVIE="False"
+        local CODEC="$(cat "$DATAF" | grep -E "^codec_name=" | awk -F= '{ print $2 }')"        
+        if [ "$CODEC" = "ansi" ] ; then
+            IS_MOVIE="False"
+        elif [ "$CODEC" = "mjpeg" ] && [ "$FILE_SIZE" -lt "4194304" ] ; then
+            IS_MOVIE="False"
+        fi
+        echo "is_movie=$IS_MOVIE"                              >> "$DATAF"
+        echo "is_reencoded=$(is_reencoded "$FILENAME" && echo "True" || echo "False")" >> "$DATAF"
+        echo "percent_gain=$(perc_gain "$FILENAME" || echo "")" >> "$DATAF"
+    fi
+    cat "$DATAF"
+}
+
 is_movie_file()
 {
     local FILENAME="$1"
-    local INFO=$(ffprobe -v quiet -select_streams v:0 -show_entries stream=codec_name -print_format csv=p=0 "$FILENAME" 2>/dev/null || echo "")
-    if [ "$INFO" = "mjpeg" ] && [ "$(du -b "$FILENAME" | awk '{ print $1 }')" -lt "4194304" ] ; then
-        return 1
-    fi
-    if [ "$INFO" != "ansi" ] && [ "$INFO" != "" ] ; then
-        return 0
-    fi
-    return 1
+    cached_info "$FILENAME" | grep -qE "^is_movie=True" && return 0 || return 1
 }
 
 is_on_white_list()
@@ -171,14 +291,7 @@ is_on_white_list()
 probe_info()
 {
     local FILENAME="$1"
-    local DATAF="$TMPD/ffprobe_${FILENAME}"
-    
-    if [ ! -f "$DATAF" ] ; then
-        mkdir -p "$(dirname "$DATAF")"
-        ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=bit_rate,codec_name,duration,width,height,pix_fmt -sexagesimal "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.,,' | sed 's,",,g' 2>&1 > "$DATAF"
-    fi
-    
-    cat "$DATAF"
+    cached_info "$FILENAME"
 }
 
 calc_codec()
@@ -246,11 +359,11 @@ calc_pixfmt()
 print_info()
 {
     local F="$1"
-    printf "%s %s kb/s %dx%d %s" \
-           "$(calc_codec "$F")" \
+    printf "%s %s kb/s %dx%d %s"  \
+           "$(calc_codec "$F")"   \
            "$(calc_bitrate "$F")" \
-           "$(calc_width "$F")" \
-           "$(calc_height "$F")" \
+           "$(calc_width "$F")"   \
+           "$(calc_height "$F")"  \
            "$(calc_pixfmt "$F")"    
 }
 
@@ -262,84 +375,6 @@ swap_files()
     mv "$1" "$TMPFILE"
     mv "$2" "$1"
     mv "$TMPFILE" "$2"
-}
-
-# -- File info
-
-extension()
-{
-    local FILENAME="$1"
-    local EXT="$(echo "$FILENAME" | awk -F . '{if (NF>1) { print $NF }}')"
-    echo "$EXT"
-}
-
-extensionless()
-{
-    local FILENAME="$1"
-    local EXT="$(echo "$FILENAME" | awk -F . '{if (NF>1) { print $NF }}')"
-    if (( ${#EXT} > 0 )) ; then
-	echo "${FILENAME:0:$(expr ${#FILENAME} -  ${#EXT} - 1)}"
-    else
-	echo "$FILENAME"
-    fi
-}
-
-file_size()
-{
-    local FILENAME="$1"
-    du -b "$FILENAME" | awk '{ print $1 }'
-}
-
-delta_megabytes()
-{
-    local FILE_A="$1"
-    local FILE_B="$2"
-    echo "scale=3 ; ($(file_size "$FILE_A") - $(file_size "$FILE_B")) / (1024 * 1024)" | bc
-}
-
-is_reencoded()
-{
-    local FNAME="$1"
-    getfattr -n user.original_filename "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
-}
-
-reencode_was_attempted()
-{
-    local FNAME="$1"
-    getfattr -n user.encode_attempt_gain "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
-}
-
-perc_gain()
-{
-    local FNAME="$1"
-    
-    # This only makes sense for reencoded files
-    is_reencoded "$FNAME" || return 1
-
-    local SZ_0="$(getfattr -d "$FNAME" 2>/dev/null | grep "user.original_filesize" | awk -F= '{ print $2 }' | sed 's,",,g')"
-    local SZ_1="$(du -b "$FNAME" | awk '{ print $1 }')"
-    local DIFF="$(echo "scale=9 ; ($SZ_0 - $SZ_1) / (1024 * 1024 * 1024)" | bc)"
-    local PERC="$(echo "scale=2 ; ($SZ_0 - $SZ_1) / (0.01 * $SZ_0)" | bc)"
-
-    echo "$PERC"
-}
-
-output_base_filename()
-{
-    local FILENAME="$1"
-    echo "$(dirname "$FILENAME")/$(extensionless "$(basename "$FILENAME")").mp4"
-}
-
-tmp_filename()
-{
-    local FILENAME="$1"
-    echo "$TMPD/$(output_base_filename "$FILENAME")"
-}
-
-output_filename()
-{
-    local FILENAME="$1"
-    echo "$OUTPUT_D/$(output_base_filename "$FILENAME")"
 }
 
 # -- Transcoding
@@ -645,8 +680,19 @@ reconcile()
     return "$EXITCODE"
 }
 
+print_database()
+{
+    local BASE_DIRECTORY="$1"
+    cd "$BASE_DIRECTORY"
+    print_manifest > "$MANIFEST_F"
+    while read FILENAME ; do
+        FNAME="$(printf %s "$BASE_DIRECTORY/$FILENAME" | sed 's,","",g')"
+        FIELDS="$(cached_info "$FILENAME" | grep -v "filename=" | sed 's,^.*=,,' | tr '\n' ',' | sed 's/,$//')"
+        printf '"%s",%s\n' "$FNAME" "$FIELDS"
+    done < <(cat "$MANIFEST_F")
+}
 
-# -- ACTRION! Check the Whitelist
+# -- ACTION! Check the Whitelist
 
 if [ "$CHECK_WHITELIST" = "True" ] ; then
     check_whitelist
@@ -654,6 +700,9 @@ if [ "$CHECK_WHITELIST" = "True" ] ; then
     exit $?
 elif [ "$RECONCILE" = "True" ] ; then
     reconcile "$INPUT_D"
+    exit $?
+elif [ "$PRINT_DATABASE" = "True" ] ; then
+    print_database "$INPUT_D"
     exit $?
 fi
 
