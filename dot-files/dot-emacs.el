@@ -70,7 +70,7 @@
  '(inhibit-startup-screen t)
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(package-selected-packages
-   '(dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
+   '(groovy-mode dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -747,6 +747,11 @@ bracket is present"
 (add-to-list 'auto-mode-alist '("BUILD" . bazel-build-mode))
 (add-to-list 'auto-mode-alist '("WORKSPACE" . bazel-workspace-mode))
 (add-to-list 'auto-mode-alist '("\\.bzl\\'" . bazel-starlark-mode))
+
+;;; --------------------------------------------------------------------- Groovy
+
+(require 'groovy-mode)
+(add-to-list 'auto-mode-alist '("\\.groovy\\'" . groovy-mode))
 
 ;;; -------------------------------------------------------------- column-marker
 ;; http://www.emacswiki.org/emacs/fill-column-indicator.el
