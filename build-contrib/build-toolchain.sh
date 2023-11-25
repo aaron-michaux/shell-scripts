@@ -26,8 +26,8 @@ show_help()
       # Install gcc version 13.1.0 to $TOOLCHAINS_DIR
       > $(basename $0) gcc-13.1.0
 
-      # Install clang version 16.0.2 to $TOOLCHAINS_DIR
-      > $(basename $0) clang-16.0.2
+      # Install llvm version 16.0.2 to $TOOLCHAINS_DIR
+      > $(basename $0) llvm-16.0.2
 
    Repos:
 
@@ -35,7 +35,7 @@ show_help()
       https://github.com/llvm/llvm-project
 
 EOF
-}
+} 
 
 # ------------------------------------------------------------------------- llvm
 
@@ -47,7 +47,7 @@ build_llvm()
 
     local SRC_D="$TMPD/$LLVM_DIR"
     local BUILD_D="$TMPD/build-llvm-${TAG}"
-    local INSTALL_PREFIX="${TOOLCHAINS_DIR}/clang-${CLANG_V}"
+    local INSTALL_PREFIX="${TOOLCHAINS_DIR}/llvm-${CLANG_V}"
     
     rm -rf "$BUILD_D"
     mkdir -p "$SRC_D"
@@ -72,7 +72,7 @@ build_llvm()
     # -D PYTHON_INCLUDE_DIR=/usr/include/python3.6m \
     # -D CURSES_LIBRARY=/usr/lib/x86_64-linux-gnu/libncurses.so \
     # -D CURSES_INCLUDE_PATH=/usr/include/ \
- 
+    
     nice $CMAKE -G "Unix Makefiles" \
          -D LLVM_ENABLE_PROJECTS="clang;clang-tools-extra;lld" \
          -D LLVM_ENABLE_RUNTIMES="compiler-rt;libc;libcxx;libcxxabi;libunwind" \
@@ -161,7 +161,7 @@ while (( $# > 0 )) ; do
         [ "${ARG:0:4}" = "llvm" ]  && VERSION="${ARG:5}" || true
         [ "${ARG:0:5}" = "clang" ] && VERSION="${ARG:6}" || true
         COMMAND="build_llvm $VERSION"
-        EXEC="$TOOLCHAINS_DIR/clang-$VERSION/bin/clang"
+        EXEC="$TOOLCHAINS_DIR/llvm-$VERSION/bin/clang"
         continue
     fi  
 

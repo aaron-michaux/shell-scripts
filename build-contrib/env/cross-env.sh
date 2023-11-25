@@ -102,7 +102,7 @@ get_toolchain_dir()
 
 install_dependences()
 {    
-    # If compiling for a different platforms, we'd augment this files with
+    # If compiling for a different platforms, we'd augment these files with
     # brew commands (macos), yum (fedora) etc.
     if [ "$PLATFORM" = "ubuntu" ] ; then
         export DEBIAN_FRONTEND=noninteractive

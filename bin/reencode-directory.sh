@@ -12,7 +12,7 @@ TMPD=$(mktemp -d "/tmp/$(basename "$0").XXXXXX")
 MAX_BITRATE=3000
 MAX_COUNTER=0
 DESIRED_CODEC="hevc"
-CRF="26"
+CRF="23"
 MAX_W="1024"
 KEEP_GOING="False"
 
@@ -248,19 +248,29 @@ update_transcoded_counter()
 cached_info()
 {
     local FILENAME="$1"
-    local DATAF="$(extensionless "$TMPD/$FILENAME")._ci"
+    local DATAF="$(extensionless "$TMPD/$FILENAME")._ci"    
     if [ ! -f "$DATAF" ] ; then
         mkdir -p "$(dirname "$DATAF")"
         local FILE_SIZE="$(du -b "$FILENAME" | awk '{ print $1 }')"
         IS_MOVIE="True"
+        local EXT="$(extension "$FILENAME")"
         echo "filename=$(homefilename "$FILENAME")"              > "$DATAF"
         echo "bytes=$FILE_SIZE"                                >> "$DATAF"
         transcode.sh -i "$FILENAME" --info                     >> "$DATAF" || IS_MOVIE="False"
         local CODEC="$(cat "$DATAF" | grep -E "^codec_name=" | awk -F= '{ print $2 }')"        
+        local DURATION="$(cat "$DATAF" | grep -E "^duration=" | awk -F= '{ print $2 }')"
         if [ "$CODEC" = "ansi" ] ; then
             IS_MOVIE="False"
-        elif [ "$CODEC" = "mjpeg" ] && [ "$FILE_SIZE" -lt "4194304" ] ; then
+        elif [ "$CODEC" = "mjpeg" ] ; then
+            if [ "$DURATION" = "N/A" ] || [ "$FILE_SIZE" -lt "4194304" ] ; then
+                IS_MOVIE="False"               
+            fi
+        elif [ "$CODEC" = "" ] ; then
             IS_MOVIE="False"
+        elif [ "$EXT" = "mp3" ] ; then
+            IS_MOVIE="False"            
+        elif [ "$EXT" = "png" ] ; then
+            IS_MOVIE="False"            
         fi
         echo "is_movie=$IS_MOVIE"                              >> "$DATAF"
         echo "is_reencoded=$(is_reencoded "$FILENAME" && echo "True" || echo "False")" >> "$DATAF"
@@ -496,6 +506,9 @@ examine_one()
     if [ "$CODEC" = "" ] || ! [ "$BR" -eq "$BR" 2>/dev/null ] || ! [ "$WIDTH" -eq "$WIDTH" 2>/dev/null ] ; then
         echo -e "${COLOUR_ERROR}$PROCESS_DESC [ERROR]${COLOUR_CLEAR} probe_info '$FILENAME' returned: "
         probe_info "$FILENAME" | tr '\n' ' '
+        echo
+        echo "CODEC = '$CODEC'; BR = '$BR'; WIDTH = '$WIDTH'"
+        echo
         return 0
     fi
 
