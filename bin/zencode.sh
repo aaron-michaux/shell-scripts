@@ -65,7 +65,9 @@ done
 
 INPUT_FILENAME=""
 DO_PRINT="False"
+DO_PRINT_BACKUP="False"
 DO_CLEAR_ERRORS="False"
+DO_ENCODE="True"
 while (( $# > 0 )) ; do
     ARG="$1"
     shift
@@ -73,7 +75,8 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-c" ] || [ "$ARG" = "--code" ] && DESIRED_CODEC="$1" && shift && continue
     [ "$ARG" = "-crf" ] || [ "$ARG" = "--crf" ] && CRF="$1" && shift && continue
     [ "$ARG" = "-max-bitrate" ] || [ "$ARG" = "--max-bitrate" ] && MAX_BITRATE="$1" && shift && continue
-    [ "$ARG" = "-p" ] || [ "$ARG" = "--print" ] && DO_PRINT="True" && continue
+    [ "$ARG" = "-p" ] || [ "$ARG" = "--print" ] && DO_PRINT="True" && DO_ENCODE="False" && continue
+    [ "$ARG" = "-b" ] && DO_PRINT_BACKUP="True" && DO_ENCODE="False" && continue
     [ "$ARG" = "--clear-errors" ] && DO_CLEAR_ERRORS="True" && continue
     
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
@@ -234,7 +237,7 @@ cached_info()
         local FILE_SIZE="$(du -b "$FILENAME" | awk '{ print $1 }')"
         IS_MOVIE="True"
         local EXT="$(extension "$FILENAME")"
-        echo "filename=$(homefilename "$FILENAME")"              > "$DATAF"
+        echo "filename=$(homefilename "$FILENAME")"             > "$DATAF"
         echo "bytes=$FILE_SIZE"                                >> "$DATAF"
         transcode.sh -i "$FILENAME" --info                     >> "$DATAF" || IS_MOVIE="False"
         local CODEC="$(cat "$DATAF" | grep -E "^codec_name=" | awk -F= '{ print $2 }')"        
@@ -463,29 +466,29 @@ examine_one()
     PROCESS_DESC=""
 
     if is_reencoded "$FILENAME" ; then
-        printf "${COLOUR_DONE}${PROCESS_DESC}Already done, filename: %s, perc-gain %s${COLOUR_CLEAR}\n" "$FILENAME" "$(perc_gain "$FILENAME")"        
+        printf "${COLOUR_DONE}${PROCESS_DESC}already done, filename: %s, perc-gain %s${COLOUR_CLEAR}\n" "$FILENAME" "$(perc_gain "$FILENAME")"        
         return 0
     fi
 
     if reencode_was_attempted "$FILENAME" ; then
-        printf "${COLOUR_WARNING}${PROCESS_DESC}Re-encode attempt was already made, filename: %s, perc-gain %s${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.encode_attempt_gain "$FILENAME" 2>/dev/null)"
+        printf "${COLOUR_WARNING}${PROCESS_DESC}re-encode attempt was already made, filename: %s, perc-gain %s${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.encode_attempt_gain "$FILENAME" 2>/dev/null)"
         return 0
     fi
 
     if is_skip_encode "$FILENAME" ; then
-        printf "${COLOUR_DONE}${PROCESS_DESC}Skip encode, filename: %s, reason: %s${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.skip_encode "$FILENAME" 2>/dev/null)"
+        printf "${COLOUR_DONE}${PROCESS_DESC}skip encode, filename: %s, reason: %s${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.skip_encode "$FILENAME" 2>/dev/null | awk -F= '{ print $2 }' | tr '\n' ' ' | sed 's,^ *",,' | sed 's," *$,,' )"
         return 0
     fi
         
     if ! lazy_is_movie_file "$FILENAME" ; then
-        printf "${COLOUR_NOT_MOVIE}${PROCESS_DESC}Not a movie, filename: %s${COLOUR_CLEAR}\n" "$FILENAME"
+        printf "${COLOUR_NOT_MOVIE}${PROCESS_DESC}not a movie, filename: %s${COLOUR_CLEAR}\n" "$FILENAME"
         return 0
     fi
 
     local BACK_F="$(backup_filename "$FILENAME")"
     
     if [ -f "$BACK_F" ] ; then
-        echo -e "${COLOUR_ERROR}Cowardly refusing to encode '$FILENAME' because backup-file '$BACK_F' already exists${COLOUR_CLEAR}"
+        echo -e "${COLOUR_ERROR}cowardly refusing to encode '$FILENAME' because backup-file '$BACK_F' already exists${COLOUR_CLEAR}"
         return 0
     fi
     
@@ -493,7 +496,7 @@ examine_one()
     local BR="$(calc_bitrate "$FILENAME")"
     local WIDTH="$(calc_width "$FILENAME")"
     if [ "$CODEC" = "" ] || ! [ "$BR" -eq "$BR" 2>/dev/null ] || ! [ "$WIDTH" -eq "$WIDTH" 2>/dev/null ] ; then
-        echo -e "${COLOUR_ERROR}${PROCESS_DESC}[ERROR]${COLOUR_CLEAR} probe_info '$FILENAME' returned: "
+        echo -e "${COLOUR_ERROR}${PROCESS_DESC}[error]${COLOUR_CLEAR} probe_info '$FILENAME' returned: "
         probe_info "$FILENAME" | tr '\n' ' '
         echo
         echo "CODEC = '$CODEC'; BR = '$BR'; WIDTH = '$WIDTH'"
@@ -503,7 +506,7 @@ examine_one()
     fi
 
     if [ "$CODEC" = "$DESIRED_CODEC" ] && (( $BR <= $MAX_BITRATE )) && (( $WIDTH <= $MAX_W )) ; then        
-        printf "${COLOUR_ALL_GOOD}${PROCESS_DESC}All good, filename: %s, bitrate: %s <= %s, width: %s <= %s" "$FILENAME" "$BR" "$MAX_BITRATE" "$WIDTH" "$MAX_W"
+        printf "${COLOUR_ALL_GOOD}${PROCESS_DESC}all good, filename: %s, bitrate: %s <= %s, width: %s <= %s\n" "$FILENAME" "$BR" "$MAX_BITRATE" "$WIDTH" "$MAX_W"
         set_skip_encode_xattr "$FILENAME" "all good"                  
         return 0
     fi
@@ -513,7 +516,7 @@ examine_one()
     mkdir -p "$(dirname "$BACK_F")"
     mkdir -p "$(dirname "$TEMP_F")"       
        
-    echo -e "${COLOUR_PROCESS}${PROCESS_DESC}Transcoding $FILENAME${COLOUR_CLEAR}"
+    echo -e "${COLOUR_PROCESS}${PROCESS_DESC}transcoding $FILENAME${COLOUR_CLEAR}"
     echo "   $(date '+%Y-%m-%d %H:%M:%S')"
 
     if ! transcode_one "$FILENAME" ; then
@@ -528,13 +531,19 @@ if [ "$DO_CLEAR_ERRORS" = "True" ] ; then
     setfattr --remove=user.encode_attempt_gain "$INPUT_FILENAME" 2>/dev/null || true
 fi
 
+if [ "$DO_PRINT_BACKUP" = "True" ] ; then
+    backup_filename "$INPUT_FILENAME"
+fi
+
 if [ "$DO_PRINT" = "True" ] ; then
     getfattr -d -m - "$INPUT_FILENAME"
     echo "Info-line: $(print_info "$INPUT_FILENAME")"
     echo
     cached_info "$INPUT_FILENAME"
     echo
-else
+fi
+
+if [ "$DO_ENCODE" = "True" ] ; then
     # -- ACTION! Re-encode
     examine_one "$INPUT_FILENAME"
 fi

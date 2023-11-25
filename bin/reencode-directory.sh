@@ -1,12 +1,9 @@
 #!/bin/bash
 
-set -e
-set -o pipefail
+set -euo pipefail
 
-PPWD="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd -P)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P)"
 
-INPUT_D=""
-OUTPUT_D=""
 WHITELIST_F=""
 TMPD=$(mktemp -d "/tmp/$(basename "$0").XXXXXX")
 MAX_BITRATE=3000
@@ -24,6 +21,7 @@ TOTALS_F="$TMPD/totals"
 TRANSCODED_COUNTER_F="$TMPD/transcoded_counter"
 MANIFEST_F="$TMPD/manifest.text"
 MANIFEST_SIZE=0
+INPUT_DIR_FILE="$TMPD/inputs"
 
 COLOUR_ERROR='\e[0;91m'
 COLOUR_WHITELIST='\e[0;97m'
@@ -35,6 +33,9 @@ COLOUR_NOT_MOVIE="\e[0;90m"
 COLOUR_CLEAR='\e[0;0m'
 
 PERC_THRESHOLD="20.0"
+
+declare -A WHITELIST_SET
+WHITELIST_SET[z]=1
 
 trap cleanup EXIT
 cleanup()
@@ -53,9 +54,8 @@ show_help()
 
    Required Arguments
 
-      -i <path>           An input directory
+      -i <path>           An input directory, can be specified multiple times
       -o <path>           Output directory
-      -w <filename>       A white-list file, where each line lists a video file to skip
 
    Options With Defaults      
 
@@ -65,6 +65,9 @@ show_help()
       -k                  Keep going if there's an error
 
    Utility Options
+
+      -w <filename>       A white-list file, where each line lists a video file to skip; filenames
+                          are always relative to the user's home directory.
 
       --check-whitelist   Check the passed whitelist:
                            1. Do any files in the whitelist not exist in source?
@@ -81,33 +84,39 @@ EOF
 # -- Parse Command-line
 
 for ARG in "$@" ; do
-    [ "$ARG" = "-h" ] && [ "$ARG" = "--help" ] && show_help && exit 0
+    [ "$ARG" = "-h" ] || [ "$ARG" = "--help" ] && show_help && exit 0
 done
 
+touch "$INPUT_DIR_FILE"
 while (( $# > 0 )) ; do
     ARG="$1"
     shift
-    [ "$ARG" = "-i" ] && INPUT_D="$1" && shift && continue
-    [ "$ARG" = "-o" ] && OUTPUT_D="$1" && shift && continue
+    [ "$ARG" = "-i" ] && echo "$1" >> "$INPUT_DIR_FILE" && shift && continue
     [ "$ARG" = "-w" ] && WHITELIST_F="$1" && shift && continue
-    [ "$ARG" = "-c" ] || [ "$ARG" = "--code" ] && DESIRED_CODEC="$1" && shift && continue
-    [ "$ARG" = "-crf" ] || [ "$ARG" = "--crf" ] && CRF="$1" && shift && continue
+    [ "$ARG" = "-c" ]   || [ "$ARG" = "--code" ] && DESIRED_CODEC="$1" && shift && continue
+    [ "$ARG" = "-crf" ] || [ "$ARG" = "--crf"  ] && CRF="$1"           && shift && continue
     [ "$ARG" = "-max-bitrate" ] || [ "$ARG" = "--max-bitrate" ] && MAX_BITRATE="$1" && shift && continue
-    [ "$ARG" = "-k" ] && KEEP_GOING="True" && continue
+    [ "$ARG" = "-k" ]                && KEEP_GOING="True" && continue
     [ "$ARG" = "--check-whitelist" ] && CHECK_WHITELIST="True" && continue
-    [ "$ARG" = "--reconcile" ] && RECONCILE="True" && continue
-    [ "$ARG" = "--print-database" ] && PRINT_DATABASE="True" && continue
+    [ "$ARG" = "--reconcile" ]       && RECONCILE="True" && continue
+    [ "$ARG" = "--print-database" ]  && PRINT_DATABASE="True" && continue
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done
 
-[ ! -d "$INPUT_D" ]  && echo "Input directory not found: '$INPUT_D'"   1>&2 && exit 1 || true
-[ ! -d "$OUTPUT_D" ] && echo "Output directory not found: '$OUTPUT_D'" 1>&2 && exit 1 || true
-[ "$WHITELIST_F" != "" ] && [ ! -f "$WHITELIST_F" ] \
-    && echo "Whitelist file not found: '$WHITELIST_F'" 1>&2 && exit 1 || true
+# -- Input directories
 
-LOG_F="$OUTPUT_D/log.text"
+input_directories() {
+    cat "$INPUT_DIR_FILE" | sed 's,/$,,'
+}
+
+[ -f "$HOME/TMP" ] && LOG_F="$HOME/TMP/reencode-log.text" || LOG_F="/tmp/reencode-log.text"
 
 # -- File info
+
+encode_filename()
+{
+    echo "$1" | sha256sum | cut -f 1 -d ' '
+}
 
 extension()
 {
@@ -200,12 +209,6 @@ tmp_filename()
     echo "$TMPD/$(output_base_filename "$FILENAME")"
 }
 
-output_filename()
-{
-    local FILENAME="$1"
-    echo "$OUTPUT_D/$(output_base_filename "$FILENAME")"
-}
-
 # -- Total
 
 init_total()
@@ -287,15 +290,8 @@ is_movie_file()
 
 is_on_white_list()
 {
-    local FILENAME="$1"
-    if [ -f "$WHITELIST_F" ] ; then
-        while read MATCH ; do
-            if [ "$FILENAME" = "$MATCH" ] ; then
-                return 0
-            fi
-        done < <(cat "$WHITELIST_F" ; echo)
-    fi
-    return 1
+    local FILENAME="$(encode_filename "$1")"
+    [ -v WHITELIST_SET[$FILENAME] ] && return 0 || return 1
 }
 
 probe_info()
@@ -559,45 +555,25 @@ examine_one()
     
 }
 
-# -- Process an entire directory
+# -- Printing the entire manifest
 
 print_manifest()
 {
-    D="$1"
-    cd "$D"
-    find . -type f | sed 's,^./,,' | sort
+    if [ ! -f "$TMPD/manifest.text" ] ; then
+        while read DIR ; do
+            find "$DIR" -type f | sed 's,^./,,' | sort
+        done < <(input_directories) > "$TMPD/manifest.text"
+    fi
+    cat "$TMPD/manifest.text"
 }
 
-process_dir()
-{
-    D="$1"
-    cd "$D"
-
-    print_manifest > "$MANIFEST_F"
-    MANIFEST_SIZE="$(cat "$MANIFEST_F" | wc -l)"
-
-    # 1-index counter to be human readable
-    COUNTER=1
-    while read FILENAME ; do
-        
-        examine_one "$FILENAME" "$COUNTER"
-        COUNTER=$(expr $COUNTER + 1)
-        
-        # Exit if we've reached the maximum number of files to do
-        TRANSCODED_COUNTER=$(get_transcoded_counter)
-        if [ "$MAX_COUNTER" -ne "0" ] && [ "$TRANSCODED_COUNTER" -ge "$MAX_COUNTER" ] ; then
-            echo "Transcoded the max number of files: $TRANSCODED_COUNTER"
-            break
-        fi
-
-    done  < <(cat "$MANIFEST_F")
-}
+# -- Process an entire directory
 
 check_whitelist()
 {
     # For every line in the white list:
     #  1. Check to see if the file exists in source
-    #  2. Chcek to see if it's been transcoded...
+    #  2. Check to see if it's been transcoded...
     echo "0" > "$TMPD/exit_code"
     cat "$WHITELIST_F" | grep -Ev '^\#' | grep -Ev '^ *$' | while read FILENAME ; do
         OUT_F="$(output_filename "$FILENAME")"
@@ -705,6 +681,86 @@ print_database()
     done < <(cat "$MANIFEST_F")
 }
 
+# -- Process Manifest
+
+ALREADY_DONE=0
+REENCODE_ALREADY_ATTEMPTED=0
+SKIP_ENCODE=0
+NOT_A_MOVIE=0
+BACKUP_FILE_ALREADY_EXISTS=0
+ALL_GOOD=0   # The file didn't need to be transcoded
+TRANSCODED=0
+UNCATEGORIZED=0
+
+ERROR_COUNT=0
+WHITELIST_COUNT=0
+
+process_manifest()
+{
+    MANIFEST_SIZE="$(print_manifest | wc -l)"
+    MANIFEST_DIGITS=${#MANIFEST_SIZE}
+    
+    # 1-index counter to be human readable
+    COUNTER=1
+    while read FILENAME ; do
+
+        printf "[%0${MANIFEST_DIGITS}d/%0${MANIFEST_DIGITS}d] " $COUNTER $MANIFEST_SIZE  | tee -a "$LOG_F"
+        if is_on_white_list "$FILENAME" ; then
+            printf "${COLOUR_WHITELIST}white-list, filename: %s${COLOUR_CLEAR}\n" "$FILENAME" | tee -a "$LOG_F"
+            WHITELIST_COUNT=$(expr $WHITELIST_COUNT + 1)
+        else
+            "$SCRIPT_DIR/zencode.sh" -i "$FILENAME" | tee -a "$LOG_F" | tee "$TMPD/output" \
+                && SUCCESS="True" || SUCCESS="False"
+
+            OUTPUT="$(cat "$TMPD/output")"
+            if [ "$SUCCESS" = "False" ] ; then
+                ERROR_COUNT=$(expr $ERROR_COUNT + 1)
+            elif [[ "$OUTPUT" =~ already\ done ]] ; then
+                ALREADY_DONE=$(expr $ALREADY_DONE + 1)
+            elif [[ "$OUTPUT" =~ re-encode\ attempt\ was\ already\ made ]] ; then
+                REENCODE_ALREADY_ATTEMPTED=$(expr $REENCODE_ALREADY_ATTEMPTED + 1)
+            elif [[ "$OUTPUT" =~ skip\ encode ]] ; then
+                SKIP_ENCODE=$(expr $SKIP_ENCODE + 1)
+            elif [[ "$OUTPUT" =~ not\ a\ movie ]] ; then
+                NOT_A_MOVIE=$(expr $NOT_A_MOVIE + 1)
+            elif [[ "$OUTPUT" =~ cowardly\ refusing\ to\ encode ]] ; then
+                BACKUP_FILE_ALREADY_EXISTS=$(expr $BACKUP_FILE_ALREADY_EXISTS + 1)
+            elif [[ "$OUTPUT" =~ all\ good\,\ filename ]] ; then
+                ALL_GOOD=$(expr $ALL_GOOD + 1)
+            elif [[ "$OUTPUT" =~ transcoding\  ]] ; then
+                TRANSCODED=$(expr $TRANSCODED + 1)
+            else
+                echo "\nFELL THROUGH THE CRACKS OUTPUT=$OUTPUT\n" | tee -a "$LOG_F"
+                UNCATEGORIZED=$(expr $UNCATEGORIZED + 1)
+            fi
+        fi
+        
+        COUNTER=$(expr $COUNTER + 1)        
+    done  < <(print_manifest)
+}
+
+# -- Sanity checks
+
+[ "$(input_directories | wc -l)" = "0" ] \
+    && echo "Must specify an input directory" 1>&2 && exit 1 || true
+
+HAS_ERROR="False"
+while read DIR ; do
+    [ ! -d "$DIR" ] && echo "Input directory not found: '$DIR'" 1>&2 && HAS_ERROR="True" || true
+done < <(input_directories)
+[ "$HAS_ERROR" = "True" ] && exit 1 || true
+
+[ "$WHITELIST_F" != "" ] && [ ! -f "$WHITELIST_F" ] \
+    && echo "Whitelist file not found: '$WHITELIST_F'" 1>&2 && exit 1 || true
+
+# -- Setup whitelist if it exists
+
+if [ "$WHITELIST_F" != "" ] ; then
+    while read LINE ; do
+        WHITELIST_SET[$(encode_filename "$LINE")]=1
+    done < <(cat "$WHITELIST_F" ; echo)
+fi
+
 # -- ACTION! Check the Whitelist
 
 if [ "$CHECK_WHITELIST" = "True" ] ; then
@@ -719,17 +775,34 @@ elif [ "$PRINT_DATABASE" = "True" ] ; then
     exit $?
 fi
 
-
-
 # -- ACTION! Re-encode
+
 mkdir -p "$(dirname "$LOG_F")"    
 printf '\n\n\n# --------------------------------------------- START (%s)\n' "$(date)" | tee "$LOG_F"
-echo "Input Directory:  $INPUT_D"     | tee "$LOG_F"
-echo "Output Directory: $OUTPUT_D"    | tee "$LOG_F"
+while read DIR ; do
+    echo "Directory:        $DIR"     | tee "$LOG_F"
+done < <(input_directories)
 echo "Whitelist file:   $WHITELIST_F" | tee "$LOG_F"
 echo "Log file:         $LOG_F"       | tee "$LOG_F"
 init_total
 init_transcoded_counter
-process_dir "$INPUT_D"
+process_manifest
 
-echo "Total Saved: $(echo "scale=3 ; $(get_total) / 1024" | bc) Gigs"
+cat <<EOF
+
+Already reencoded:          $ALREADY_DONE
+Encode not necessary:       $ALL_GOOD
+Transcoded:                 $TRANSCODED
+Prev reencode didn't help:  $REENCODE_ALREADY_ATTEMPTED
+Skipped encode:             $SKIP_ENCODE
+Was on whitelist:           $WHITELIST_COUNT
+
+Not a movie:                $NOT_A_MOVIE
+Backup already existed:     $BACKUP_FILE_ALREADY_EXISTS
+Errors:                     $ERROR_COUNT
+Uncategorized:              $UNCATEGORIZED
+
+Total Saved:                $(echo "scale=3 ; $(get_total) / 1024" | bc) Gigs
+
+EOF
+
