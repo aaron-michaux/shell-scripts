@@ -14,7 +14,7 @@ MAX_W="1024"
 KEEP_GOING="False"
 
 CHECK_WHITELIST="False"
-RECONCILE="False"
+PRINT_SUMMARY="False"
 PRINT_DATABASE="False"
 
 TOTALS_F="$TMPD/totals"
@@ -72,8 +72,7 @@ show_help()
       --check-whitelist   Check the passed whitelist:
                            1. Do any files in the whitelist not exist in source?
 
-      --reconcile         Movies files back from the encode directory to the source directory,
-                          removing source files. (cp/rsync cannot be used because of file name changes.)
+      --summary           Prints a summary
   
       --print-database    Prints our (csv) format data
 
@@ -97,7 +96,7 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-max-bitrate" ] || [ "$ARG" = "--max-bitrate" ] && MAX_BITRATE="$1" && shift && continue
     [ "$ARG" = "-k" ]                && KEEP_GOING="True" && continue
     [ "$ARG" = "--check-whitelist" ] && CHECK_WHITELIST="True" && continue
-    [ "$ARG" = "--reconcile" ]       && RECONCILE="True" && continue
+    [ "$ARG" = "--summary" ]         && PRINT_SUMMARY="True" && continue
     [ "$ARG" = "--print-database" ]  && PRINT_DATABASE="True" && continue
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done
@@ -125,6 +124,29 @@ delta_megabytes()
     local FILE_A="$1"
     local FILE_B="$2"
     echo "scale=3 ; ($(file_size "$FILE_A") - $(file_size "$FILE_B")) / (1024 * 1024)" | bc
+}
+
+is_reencoded()
+{
+    local FNAME="$1"
+    getfattr -n user.original_filename "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
+}
+
+megabytes_gain()
+{
+    local FNAME="$1"
+
+    # This only makes sense for reencoded files
+    if ! is_reencoded "$FNAME" ; then
+        echo "0.0"
+        return 0
+    fi
+
+    local SZ_0="$(getfattr -d "$FNAME" 2>/dev/null | grep "user.original_filesize" | awk -F= '{ print $2 }' | sed 's,",,g')"
+    local SZ_1="$(du -b "$FNAME" | awk '{ print $1 }')"
+    local DIFF="$(echo "scale=9 ; ($SZ_0 - $SZ_1) / (1024 * 1024)" | bc)"
+
+    echo "$DIFF"
 }
 
 perc_gain()
@@ -217,17 +239,32 @@ print_database()
 
 # --------------------------------------------------------------------------------- process manifest
 
-ALREADY_DONE=0
-REENCODE_ALREADY_ATTEMPTED=0
-SKIP_ENCODE=0
-NOT_A_MOVIE=0
-BACKUP_FILE_ALREADY_EXISTS=0
-ALL_GOOD=0   # The file didn't need to be transcoded
-TRANSCODED=0
-UNCATEGORIZED=0
-
-ERROR_COUNT=0
 WHITELIST_COUNT=0
+TOTAL_MEGS_SAVED=0.0
+
+record_movie_result()
+{
+    local FILENAME="$1"
+    local VARIABLE="$2"
+    echo "$FILENAME" >> "$TMPD/$VARIABLE.text"
+}
+
+get_result_count()
+{
+    local VARIABLE="$1"
+    if [ -f "$TMPD/$VARIABLE.text" ] ; then
+        cat "$TMPD/$VARIABLE.text" | wc -l
+    else
+        echo "0"
+    fi
+}
+
+print_line()
+{
+    if [ "$PRINT_SUMMARY" = "True" ] ; then
+        printf "$@"  | tee -a "$LOG_F"
+    fi
+}
 
 process_manifest()
 {
@@ -238,40 +275,51 @@ process_manifest()
     COUNTER=1
     while read FILENAME ; do
 
-        printf "[%0${MANIFEST_DIGITS}d/%0${MANIFEST_DIGITS}d] " $COUNTER $MANIFEST_SIZE  | tee -a "$LOG_F"
+        print_line "[%0${MANIFEST_DIGITS}d/%0${MANIFEST_DIGITS}d] " $COUNTER $MANIFEST_SIZE
+        
         if is_on_white_list "$FILENAME" ; then
-            printf "${COLOUR_WHITELIST}white-list, filename: %s${COLOUR_CLEAR}\n" "$FILENAME" | tee -a "$LOG_F"
+            print_line "${COLOUR_WHITELIST}white-list, filename: %s${COLOUR_CLEAR}\n" "$FILENAME"
             WHITELIST_COUNT=$(expr $WHITELIST_COUNT + 1)
+            
         else
-            "$SCRIPT_DIR/zencode.sh" -i "$FILENAME" | tee -a "$LOG_F" | tee "$TMPD/output" \
-                && SUCCESS="True" || SUCCESS="False"
+            if [ "$PRINT_SUMMARY" = "True" ] ; then
+                "$SCRIPT_DIR/zencode.sh" -i "$FILENAME" --summary | tee "$TMPD/output" \
+                    && SUCCESS="True" || SUCCESS="False"                
+            else
+                "$SCRIPT_DIR/zencode.sh" -i "$FILENAME" | tee -a "$LOG_F" | tee "$TMPD/output" \
+                    && SUCCESS="True" || SUCCESS="False"
+            fi
 
             OUTPUT="$(cat "$TMPD/output")"
             if [ "$SUCCESS" = "False" ] ; then
-                ERROR_COUNT=$(expr $ERROR_COUNT + 1)
+                record_movie_result "$FILENAME" ERROR_COUNT
             elif [[ "$OUTPUT" =~ already\ done ]] ; then
-                ALREADY_DONE=$(expr $ALREADY_DONE + 1)
+                record_movie_result "$FILENAME" ALREADY_DONE
             elif [[ "$OUTPUT" =~ re-encode\ attempt\ was\ already\ made ]] ; then
-                REENCODE_ALREADY_ATTEMPTED=$(expr $REENCODE_ALREADY_ATTEMPTED + 1)
-            elif [[ "$OUTPUT" =~ skip\ encode ]] ; then
-                SKIP_ENCODE=$(expr $SKIP_ENCODE + 1)
+                record_movie_result "$FILENAME" REENCODE_ALREADY_ATTEMPTED
             elif [[ "$OUTPUT" =~ not\ a\ movie ]] ; then
-                NOT_A_MOVIE=$(expr $NOT_A_MOVIE + 1)
+                record_movie_result "$FILENAME" NOT_A_MOVIE
             elif [[ "$OUTPUT" =~ cowardly\ refusing\ to\ encode ]] ; then
-                BACKUP_FILE_ALREADY_EXISTS=$(expr $BACKUP_FILE_ALREADY_EXISTS + 1)
-            elif [[ "$OUTPUT" =~ all\ good\,\ filename ]] ; then
-                ALL_GOOD=$(expr $ALL_GOOD + 1)
+                record_movie_result "$FILENAME" BACKUP_FILE_ALREADY_EXISTS
+            elif [[ "$OUTPUT" =~ all\ good\,\ filename ]] || [[ "$OUTPUT" =~ reason\:\ all\ good ]] ; then
+                record_movie_result "$FILENAME" ALL_GOOD
+            elif [[ "$OUTPUT" =~ skip\ encode ]] ; then
+                record_movie_result "$OUTPUT" SKIP_ENCODE
             elif [[ "$OUTPUT" =~ transcoding\  ]] ; then
-                TRANSCODED=$(expr $TRANSCODED + 1)
+                record_movie_result "$FILENAME" TRANSCODED
             else
                 echo "\nFELL THROUGH THE CRACKS OUTPUT=$OUTPUT\n" | tee -a "$LOG_F"
-                UNCATEGORIZED=$(expr $UNCATEGORIZED + 1)
+                record_movie_result "$FILENAME" UNCATEGORIZED
             fi
         fi
+
+        TOTAL_MEGS_SAVED="$(echo "$TOTAL_MEGS_SAVED + $(megabytes_gain "$FILENAME")" | bc)"
         
         COUNTER=$(expr $COUNTER + 1)        
     done  < <(print_manifest)
 }
+
+
 
 # -- Sanity checks
 
@@ -299,9 +347,7 @@ if [ "$CHECK_WHITELIST" = "True" ] ; then
     check_whitelist
     echo "Checks done"
     exit $?
-elif [ "$RECONCILE" = "True" ] ; then
-    reconcile "$INPUT_D"
-    exit $?
+
 elif [ "$PRINT_DATABASE" = "True" ] ; then
     print_database
     exit $?
@@ -311,28 +357,40 @@ fi
 
 mkdir -p "$(dirname "$LOG_F")"    
 printf '\n\n\n# --------------------------------------------- START (%s)\n' "$(date)" | tee "$LOG_F"
+echo "Summary Mode:     $PRINT_SUMMARY" | tee "$LOG_F"
 while read DIR ; do
-    echo "Directory:        $DIR"     | tee "$LOG_F"
+    echo "Directory:        $DIR"       | tee "$LOG_F"
 done < <(input_directories)
-echo "Whitelist file:   $WHITELIST_F" | tee "$LOG_F"
-echo "Log file:         $LOG_F"       | tee "$LOG_F"
+echo "Whitelist file:   $WHITELIST_F"   | tee "$LOG_F"
+echo "Log file:         $LOG_F"         | tee "$LOG_F"
+
 process_manifest
 
 cat <<EOF
 
-Already reencoded:          $ALREADY_DONE
-Encode not necessary:       $ALL_GOOD
-Transcoded:                 $TRANSCODED
-Prev reencode didn't help:  $REENCODE_ALREADY_ATTEMPTED
-Skipped encode:             $SKIP_ENCODE
+Already reencoded:          $(get_result_count ALREADY_DONE)
+Encode not necessary:       $(get_result_count ALL_GOOD)
+Transcoded:                 $(get_result_count TRANSCODED)
+Prev reencode didn't help:  $(get_result_count REENCODE_ALREADY_ATTEMPTED)
+Skipped encode:             $(get_result_count SKIP_ENCODE)
 Was on whitelist:           $WHITELIST_COUNT
 
-Not a movie:                $NOT_A_MOVIE
-Backup already existed:     $BACKUP_FILE_ALREADY_EXISTS
-Errors:                     $ERROR_COUNT
-Uncategorized:              $UNCATEGORIZED
+Not a movie:                $(get_result_count NOT_A_MOVIE)
+Backup already existed:     $(get_result_count BACKUP_FILE_ALREADY_EXISTS)
+Errors:                     $(get_result_count ERROR_COUNT)
+Uncategorized:              $(get_result_count UNCATEGORIZED)
 
-Total Saved:                $(echo "scale=3 ; $(get_total) / 1024" | bc) Gigs
+Total Saved:                $(echo "scale=3 ; $TOTAL_MEGS_SAVED / 1024" | bc) Gigs
 
 EOF
+
+if [ "$PRINT_SUMMARY" = "True" ] ; then
+    for VARIABLE in SKIP_ENCODE BACKUP_FILE_ALREADY_EXISTS ERROR_COUNT UNCATEGORIZED ; do
+        COUNT=$(get_result_count $VARIABLE)
+        [ "$COUNT" = "0" ] && continue || true
+        printf "^--------------------------------------------------------- %s=%d\n" $VARIABLE $COUNT
+        cat "$TMPD/$VARIABLE.text"
+    done
+fi
+
 

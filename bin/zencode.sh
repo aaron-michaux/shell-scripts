@@ -67,6 +67,7 @@ INPUT_FILENAME=""
 DO_PRINT="False"
 DO_PRINT_BACKUP="False"
 DO_CLEAR_ERRORS="False"
+DO_SUMMARY="False"
 DO_ENCODE="True"
 while (( $# > 0 )) ; do
     ARG="$1"
@@ -75,7 +76,8 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-c" ] || [ "$ARG" = "--code" ] && DESIRED_CODEC="$1" && shift && continue
     [ "$ARG" = "-crf" ] || [ "$ARG" = "--crf" ] && CRF="$1" && shift && continue
     [ "$ARG" = "-max-bitrate" ] || [ "$ARG" = "--max-bitrate" ] && MAX_BITRATE="$1" && shift && continue
-    [ "$ARG" = "-p" ] || [ "$ARG" = "--print" ] && DO_PRINT="True" && DO_ENCODE="False" && continue
+    [ "$ARG" = "-p" ] || [ "$ARG" = "--print" ]   && DO_PRINT="True"   && DO_ENCODE="False" && continue
+    [ "$ARG" = "-s" ] || [ "$ARG" = "--summary" ] && DO_SUMMARY="True" && DO_ENCODE="False" && continue
     [ "$ARG" = "-b" ] && DO_PRINT_BACKUP="True" && DO_ENCODE="False" && continue
     [ "$ARG" = "--clear-errors" ] && DO_CLEAR_ERRORS="True" && continue
     
@@ -461,6 +463,7 @@ set_no_good_encode_xattr()
 examine_one()
 {
     local FILENAME="$1"
+    local DO_SUMMARY="$2"
     JOB_COUNTER="0"
 
     PROCESS_DESC=""
@@ -511,17 +514,20 @@ examine_one()
         return 0
     fi
 
-    # Prepare to reencode
-    local TEMP_F="$(tmp_filename "$FILENAME")"    
-    mkdir -p "$(dirname "$BACK_F")"
-    mkdir -p "$(dirname "$TEMP_F")"       
-       
     echo -e "${COLOUR_PROCESS}${PROCESS_DESC}transcoding $FILENAME${COLOUR_CLEAR}"
-    echo "   $(date '+%Y-%m-%d %H:%M:%S')"
 
-    if ! transcode_one "$FILENAME" ; then
-        exit 1
-    fi    
+    if [ "$DO_SUMMARY" = "True" ] ; then
+        # Prepare to reencode
+        local TEMP_F="$(tmp_filename "$FILENAME")"    
+        mkdir -p "$(dirname "$BACK_F")"
+        mkdir -p "$(dirname "$TEMP_F")"       
+       
+        echo "   $(date '+%Y-%m-%d %H:%M:%S')"
+
+        if ! transcode_one "$FILENAME" ; then
+            exit 1
+        fi
+    fi
 }
 
 if [ "$DO_CLEAR_ERRORS" = "True" ] ; then
@@ -545,8 +551,8 @@ if [ "$DO_PRINT" = "True" ] ; then
     fi
 fi
 
-if [ "$DO_ENCODE" = "True" ] ; then
-    # -- ACTION! Re-encode
-    examine_one "$INPUT_FILENAME"
+if [ "$DO_ENCODE" = "True" ] || [ "$DO_SUMMARY" = "True" ] ; then
+    # -- ACTION! Re-encode (or do summary)
+    examine_one "$INPUT_FILENAME" "$DO_SUMMARY"
 fi
 
