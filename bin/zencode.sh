@@ -536,11 +536,13 @@ if [ "$DO_PRINT_BACKUP" = "True" ] ; then
 fi
 
 if [ "$DO_PRINT" = "True" ] ; then
-    getfattr -d -m - "$INPUT_FILENAME"
-    echo "Info-line: $(print_info "$INPUT_FILENAME")"
-    echo
-    cached_info "$INPUT_FILENAME"
-    echo
+    if lazy_is_movie_file "$INPUT_FILENAME" ; then
+        getfattr -d -m - "$INPUT_FILENAME"
+        echo "Info-line: $(print_info "$INPUT_FILENAME")"
+        echo
+        cached_info "$INPUT_FILENAME"
+        echo
+    fi
 fi
 
 if [ "$DO_ENCODE" = "True" ] ; then

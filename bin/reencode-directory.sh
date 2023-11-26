@@ -71,7 +71,6 @@ show_help()
 
       --check-whitelist   Check the passed whitelist:
                            1. Do any files in the whitelist not exist in source?
-                           2. Have any files in the whitelist been transcoded to dest?
 
       --reconcile         Movies files back from the encode directory to the source directory,
                           removing source files. (cp/rsync cannot be used because of file name changes.)
@@ -113,28 +112,7 @@ input_directories() {
 
 # -- File info
 
-encode_filename()
-{
-    echo "$1" | sha256sum | cut -f 1 -d ' '
-}
 
-extension()
-{
-    local FILENAME="$1"
-    local EXT="$(echo "$FILENAME" | awk -F . '{if (NF>1) { print $NF }}')"
-    echo "$EXT"
-}
-
-extensionless()
-{
-    local FILENAME="$1"
-    local EXT="$(echo "$FILENAME" | awk -F . '{if (NF>1) { print $NF }}')"
-    if (( ${#EXT} > 0 )) ; then
-	echo "${FILENAME:0:$(expr ${#FILENAME} -  ${#EXT} - 1)}"
-    else
-	echo "$FILENAME"
-    fi
-}
 
 file_size()
 {
@@ -147,18 +125,6 @@ delta_megabytes()
     local FILE_A="$1"
     local FILE_B="$2"
     echo "scale=3 ; ($(file_size "$FILE_A") - $(file_size "$FILE_B")) / (1024 * 1024)" | bc
-}
-
-is_reencoded()
-{
-    local FNAME="$1"
-    getfattr -n user.original_filename "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
-}
-
-reencode_was_attempted()
-{
-    local FNAME="$1"
-    getfattr -n user.encode_attempt_gain "$FNAME" 1>/dev/null 2>/dev/null && return 0 || return 1
 }
 
 perc_gain()
@@ -176,117 +142,14 @@ perc_gain()
     echo "$PERC"
 }
 
-absfilename()
+# ---------------------------------------------------------------------------------- encode filename
+
+encode_filename()
 {
-    local FILENAME="$1"
-    if [ "${FILENAME:0:1}" = "/" ] ; then
-        echo "$FILENAME"
-        return 0
-    fi
-    echo "$(cd "$(dirname "$FILENAME")"; pwd -P)/$(basename "$FILENAME")"
+    echo "$1" | sha256sum | cut -f 1 -d ' '
 }
 
-homefilename()
-{
-    local FILENAME="$1"
-    local ABSFNAME="$(absfilename "$FILENAME")"
-    if [ "${ABSFNAME:0:$(expr ${#HOME} + 1)}" = "$HOME/" ] ; then
-        echo "${ABSFNAME:$(expr ${#HOME} + 1)}"
-    else
-        echo "$ABSFNAME"
-    fi
-}
-
-output_base_filename()
-{
-    local FILENAME="$1"
-    echo "$(dirname "$FILENAME")/$(extensionless "$(basename "$FILENAME")").mp4"
-}
-
-tmp_filename()
-{
-    local FILENAME="$1"
-    echo "$TMPD/$(output_base_filename "$FILENAME")"
-}
-
-# -- Total
-
-init_total()
-{
-    echo "0" > "$TOTALS_F"
-}
-
-get_total()
-{
-    cat "$TOTALS_F"
-}
-
-update_total()
-{
-    local DELTA="$1"
-    local SUM="$(get_total)"
-    echo "scale=3 ; $SUM + $DELTA" | bc > "$TOTALS_F"
-}
-
-# -- Transcoded Counter
-
-init_transcoded_counter()
-{
-    echo "0" > "$TRANSCODED_COUNTER_F"
-}
-
-get_transcoded_counter()
-{
-    cat "$TRANSCODED_COUNTER_F"
-}
-
-update_transcoded_counter()
-{
-    local SUM="$(get_transcoded_counter)"
-    echo "$SUM + 1" | bc > "$TRANSCODED_COUNTER_F"
-}
-
-# -- Movie info
-
-cached_info()
-{
-    local FILENAME="$1"
-    local DATAF="$(extensionless "$TMPD/$FILENAME")._ci"    
-    if [ ! -f "$DATAF" ] ; then
-        mkdir -p "$(dirname "$DATAF")"
-        local FILE_SIZE="$(du -b "$FILENAME" | awk '{ print $1 }')"
-        IS_MOVIE="True"
-        local EXT="$(extension "$FILENAME")"
-        echo "filename=$(homefilename "$FILENAME")"              > "$DATAF"
-        echo "bytes=$FILE_SIZE"                                >> "$DATAF"
-        transcode.sh -i "$FILENAME" --info                     >> "$DATAF" || IS_MOVIE="False"
-        local CODEC="$(cat "$DATAF" | grep -E "^codec_name=" | awk -F= '{ print $2 }')"        
-        local DURATION="$(cat "$DATAF" | grep -E "^duration=" | awk -F= '{ print $2 }')"
-        if [ "$CODEC" = "ansi" ] ; then
-            IS_MOVIE="False"
-        elif [ "$CODEC" = "mjpeg" ] ; then
-            if [ "$DURATION" = "N/A" ] || [ "$FILE_SIZE" -lt "4194304" ] ; then
-                IS_MOVIE="False"               
-            fi
-        elif [ "$CODEC" = "" ] ; then
-            IS_MOVIE="False"
-        elif [ "$EXT" = "mp3" ] ; then
-            IS_MOVIE="False"            
-        elif [ "$EXT" = "png" ] ; then
-            IS_MOVIE="False"            
-        fi
-        echo "is_movie=$IS_MOVIE"                              >> "$DATAF"
-        echo "is_reencoded=$(is_reencoded "$FILENAME" && echo "True" || echo "False")" >> "$DATAF"
-        echo "percent_gain=$(perc_gain "$FILENAME" || echo "")" >> "$DATAF"
-    fi
-    cat "$DATAF"
-}
-
-is_movie_file()
-{
-    local FILENAME="$1"
-    cached_info "$FILENAME" | grep -qE "^is_movie=True" && return 0 || return 1
-}
+# --------------------------------------------------------------------------------- is on white list
 
 is_on_white_list()
 {
@@ -294,268 +157,7 @@ is_on_white_list()
     [ -v WHITELIST_SET[$FILENAME] ] && return 0 || return 1
 }
 
-probe_info()
-{
-    local FILENAME="$1"
-    cached_info "$FILENAME"
-}
-
-calc_codec()
-{
-    local F="$1"
-    probe_info "$F" | grep -E "^codec_name" | awk -F= '{ print $2 }'
-}
-
-calc_bitrate()
-{
-    local F="$1"
-    local BR="$(probe_info "$F" | grep -E "^bit_rate" | awk -F= '{ print $2 }')"
-
-    if [ "$BR" -eq "$BR" 2>/dev/null ] ; then
-        echo "scale=0 ; $BR / 1000" | bc
-        return 0
-    fi
-    local LINE="$(ffmpeg -nostdin -i "$F" 2>&1 | grep bitrate  | head -n 1)"
-    local RATE="$(echo "$LINE" | awk '{ print $6 }')"
-    local UNIT="$(echo "$LINE" | awk '{ print $7 }')"
-    if [ "$UNIT" != "kb/s" ] ; then
-        echo "Could not calculate bitrate, unknown unit: '$UNIT' in line '$LINE'" 1>&2
-        exit 1
-    fi
-    echo "$RATE"
-}
-
-calc_width()
-{
-    local F="$1"
-    local WIDTH="$(probe_info "$F" | grep -E "^width" | awk -F= '{ print $2 }')"
-
-    if [ "$WIDTH" -eq "$WIDTH" 2>/dev/null ] ; then
-        echo "$WIDTH"
-        return 0
-    fi
-    local W2="$(ffmpeg -nostdin -i Foyles\ War\ -\ S01E01\ -\ The\ German\ Woman.avi 2>&1 | grep Video: | awk -F, '{ print $3 }' | awk -Fx '{ print $1 }' | sed 's,^ *,,')"
-    if [ "$W2" -eq "$W2" 2>/dev/null ] ; then
-        echo "$W2"
-        return 0
-    fi
-    
-    echo "Could not calculate width" 1>&2
-    exit 1
-}
-
-calc_width()
-{
-    local F="$1"
-    probe_info "$F" | grep -E "^width" | awk -F= '{ print $2 }'
-}
-
-calc_height()
-{
-    local F="$1"
-    probe_info "$F" | grep -E "^height" | awk -F= '{ print $2 }'
-}
-
-calc_pixfmt()
-{
-    local F="$1"
-    probe_info "$F" | grep -E "^pix_fmt" | awk -F= '{ print $2 }'
-}
-
-print_info()
-{
-    local F="$1"
-    printf "%s %s kb/s %dx%d %s"  \
-           "$(calc_codec "$F")"   \
-           "$(calc_bitrate "$F")" \
-           "$(calc_width "$F")"   \
-           "$(calc_height "$F")"  \
-           "$(calc_pixfmt "$F")"    
-}
-
-# -- swap
-
-swap_files()
-{
-    local TMPFILE="$TMPD/tmp.$$"
-    mv "$1" "$TMPFILE"
-    mv "$2" "$1"
-    mv "$TMPFILE" "$2"
-}
-
-# -- Transcoding
-
-print_transcode_cmd()
-{
-    local FILE="$1"
-    local TMPF="$2"
-    echo -n "transcode.sh -i $(printf %q "$FILE") --crf $CRF --${DESIRED_CODEC} --mw $MAX_W $(printf %q "$TMPF")"
-}
-
-transcode_one()
-{
-    FILE="$1"
-    BASEF="$(output_base_filename "$FILE")"
-    TMPF="$(tmp_filename "$FILE")"
-    OUTF="$(output_filename "$FILE")"
-    
-    mkdir -p "$(dirname "$TMPF")"
-
-    print_transcode_cmd "$FILE" "$TMPF" | sed 's,^,   ,' | tee -a "$LOG_F"    
-    print_transcode_cmd "$FILE" "$TMPF" | dash | tee -a "$LOG_F" && SUCCESS="True" || SUCCESS="False"
-    if [ "$SUCCESS" = "False" ] ; then
-        return 1
-    fi
-            
-    mkdir -p "$(dirname "$OUTF")"
-    mv "$TMPF" "$OUTF"
-
-    # Keep track of how many transcoding operations have finished
-    update_transcoded_counter
-}
-
-# -- Set Extended Attributes on a File
-
-set_encoded_xattr()
-{
-    local IN_FILE="$1"
-    local OUT_FILE="$2"
-
-    HASH="$(md5sum "$IN_FILE" | awk '{ print $1 }')"
-    setfattr -n user.encode_date       -v "$(date '+%Y-%m-%d %H:%M:%S')" "$OUT_FILE"
-    setfattr -n user.original_filename -v "$(basename "$IN_FILE")"       "$OUT_FILE"
-    setfattr -n user.original_file_md5 -v "$HASH"                        "$OUT_FILE"
-    setfattr -n user.original_codec    -v "$(calc_codec "$IN_FILE")"     "$OUT_FILE"
-    setfattr -n user.original_bitrate  -v "$(calc_bitrate "$IN_FILE")"   "$OUT_FILE"
-    setfattr -n user.original_filesize -v "$(du -b "$IN_FILE" | awk '{ print $1 }')" "$OUT_FILE"
-}
-
-set_no_good_encode_xattr()
-{
-    local FNAME="$1"
-    local GAIN="$2"
-    setfattr -n user.encode_attempt_date -v "$(date '+%Y-%m-%d %H:%M:%S')"  "$FNAME"
-    setfattr -n user.encode_attempt_gain -v "$GAIN"                         "$FNAME"
-}
-
-# -- Examining a file... may result in a transcode operation
-
-examine_one()
-{
-    local FILENAME="$1"
-    local JOB_COUNTER="$2"
-
-    PROCESS_DESC="$(printf "[%0${#MANIFEST_SIZE}d/%d]" "$JOB_COUNTER" "$MANIFEST_SIZE")"
-
-    if is_reencoded "$FILENAME" ; then
-        printf "${COLOUR_DONE}$PROCESS_DESC Skipping '%s', already re-encoded! (perc-gain was $(perc_gain "$FILENAME"))${COLOUR_CLEAR}\n" "$FILENAME" | tee -a "$LOG_F"
-        return 0
-    fi
-
-    if reencode_was_attempted "$FILENAME" ; then
-        printf "${COLOUR_WARNING}$PROCESS_DESC Skipping '%s', a re-encode attempt was already made (perc-gain was %s)${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.encode_attempt_gain "$FILENAME" 2>/dev/null)" | tee -a "$LOG_F"
-        return 0
-    fi
-    
-    if is_on_white_list "$FILENAME" ; then
-        printf "${COLOUR_WHITELIST}$PROCESS_DESC Skipping '%s', it's on the white-list!${COLOUR_CLEAR}\n" "$FILENAME" | tee -a "$LOG_F"
-        return 0
-    fi
-    
-    if ! is_movie_file "$FILENAME" ; then
-        printf "${COLOUR_NOT_MOVIE}$PROCESS_DESC Skipping '%s', not a movie!${COLOUR_CLEAR}\n" "$FILENAME" | tee -a "$LOG_F"
-        return 0
-    fi
-    
-    local BASEF="$(output_base_filename "$FILENAME")"
-    local OUTF="$(output_filename "$FILENAME")"
-    if [ -f "$OUTF" ] ; then
-        local DELTA="$(delta_megabytes "$FILENAME" "$OUTF")"
-        update_total "$DELTA"        
-        printf "${COLOUR_DONE}$PROCESS_DESC Skipping %-80s (%s => %s)  delta: %s Megs${COLOUR_CLEAR}\n" \
-               "$BASEF" \
-               "$(print_info "$FILENAME")" \
-               "$(print_info "$OUTF")" \
-               "$DELTA" \
-            | tee -a "$LOG_F"
-
-        if is_reencoded "$OUTF" ; then
-            local GAIN="$(perc_gain "$OUTF")"
-            if [ "$(echo "$GAIN > $PERC_THRESHOLD" | bc)" = "1" ] ; then
-                # Here we do the switch-a-roo
-                swap_files "$FILENAME" "$OUTF"
-                
-            else
-                echo -e "${COLOUR_WARNING}reencode produced a gain of $GAIN; adding note (attribute) to '$FILENAME'${COLOUR_CLEAR}" | tee -a "$LOG_F"
-                set_no_good_encode_xattr "$FILENAME" "$GAIN"
-            fi
-        else
-            echo -e "${COLOUR_ERROR}For some reason, outfile='$OUTF' is not reencoded though!${COLOUR_CLEAR}" | tee -a "$LOG_F"
-        fi
-
-        return 0
-    fi
-
-    local CODEC="$(calc_codec "$FILENAME")"
-    local BR="$(calc_bitrate "$FILENAME")"
-    local WIDTH="$(calc_width "$FILENAME")"
-    if [ "$CODEC" = "" ] || ! [ "$BR" -eq "$BR" 2>/dev/null ] || ! [ "$WIDTH" -eq "$WIDTH" 2>/dev/null ] ; then
-        echo -e "${COLOUR_ERROR}$PROCESS_DESC [ERROR]${COLOUR_CLEAR} probe_info '$FILENAME' returned: "
-        probe_info "$FILENAME" | tr '\n' ' '
-        echo
-        echo "CODEC = '$CODEC'; BR = '$BR'; WIDTH = '$WIDTH'"
-        echo
-        return 0
-    fi
-
-    if [ "$CODEC" = "$DESIRED_CODEC" ] && (( $BR <= $MAX_BITRATE )) && (( $WIDTH <= $MAX_W )); then        
-        printf "${COLOUR_ALL_GOOD}$PROCESS_DESC Skipping %-80s (%s), bitrate less than $MAX_BITRATE, and width=${WIDTH} <= ${MAX_W}${COLOUR_CLEAR}\n" \
-               "$FILENAME" \
-               "$(print_info "$FILENAME")" \
-            | tee -a "$LOG_F"
-        return 0
-    fi
-
-    echo -e "${COLOUR_PROCESS}$PROCESS_DESC Transcoding '$FILENAME'${COLOUR_CLEAR}" | tee -a "$LOG_F"
-    echo "   $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$LOG_F"
-
-    local NOW="$(date '+%s')"
-    if ! transcode_one "$FILENAME" ; then
-        if [ "$KEEP_GOING" = "True" ] ; then
-            return 0
-        else
-            exit 1
-        fi
-    fi
-    set_encoded_xattr "$FILENAME" "$OUTF"
-
-    local MINUTES="$(echo "scale=2 ; ($(date '+%s') - $NOW) / 60" | bc)"
-    local DELTA="$(delta_megabytes "$FILENAME" "$OUTF")"
-    update_total "$DELTA"
-
-    PERC_GAIN="$(perc_gain "$OUTF")"
-    
-    echo "   Total Time:  $MINUTES minutes"                        | tee -a "$LOG_F"
-    echo "   Output Info: $(print_info "$OUTF")"                   | tee -a "$LOG_F"
-    echo "   Final Size:  $(du -sh "$OUTF" | awk '{ print $1 }')"  | tee -a "$LOG_F"
-    echo "   Delta MiB:   $DELTA"                                  | tee -a "$LOG_F"
-    echo "   Perc Gain:   $PERC_GAIN"                              | tee -a "$LOG_F"
-
-    if [ "$(echo "$PERC_GAIN > $PERC_THRESHOLD" | bc)" = "1" ] ; then
-        # Here we do the switch-a-roo
-        echo "   Placing outfile in-situ" | tee -a "$LOG_F"
-        swap_files "$FILENAME" "$OUTF"
-                
-    else
-        echo "   Setting 'no-good-encode' xattr" | tee -a "$LOG_F"
-        set_no_good_encode_xattr "$FILENAME" "$PERC_GAIN"
-        
-    fi
-
-    
-}
-
-# -- Printing the entire manifest
+# --------------------------------------------------------------------- printing the entire manifest
 
 print_manifest()
 {
@@ -567,121 +169,53 @@ print_manifest()
     cat "$TMPD/manifest.text"
 }
 
-# -- Process an entire directory
+# --------------------------------------------------------------------------- printing the whitelist
+
+print_whitelist()
+{
+    if [ -f "$WHITELIST_F" ] ; then
+        cat "$WHITELIST_F" | grep -Ev '^\#' | grep -Ev '^ *$'
+    fi
+}
+
+# ---------------------------------------------------------------------------------- check whitelist
 
 check_whitelist()
 {
     # For every line in the white list:
     #  1. Check to see if the file exists in source
-    #  2. Check to see if it's been transcoded...
     echo "0" > "$TMPD/exit_code"
     cat "$WHITELIST_F" | grep -Ev '^\#' | grep -Ev '^ *$' | while read FILENAME ; do
-        OUT_F="$(output_filename "$FILENAME")"
-
-        if [ ! -f "$INPUT_D/$FILENAME" ] ; then
+        if [ "$FILENAME" != "" ] && [ ! -f "$FILENAME" ] ; then
             echo -e "${COLOUR_ERROR}FileNotFound${COLOUR_CLEAR}: $FILENAME"
             echo "1" > "$TMPD/exit_code"
         fi
-        if [ -f "$OUT_F" ] ; then
-            echo -e "${COLOUR_ERROR}TargetEncoded${COLOUR_CLEAR}: $OUT_F"
-            echo "1" > "$TMPD/exit_code"
-        fi
-    done
-
+    done < <(print_whitelist ; echo)
     return "$(cat "$TMPD/exit_code")"
 }
 
-reconcile()
-{
-    echo "# Checking whitelist"
-    ! check_whitelist | sed 's,^,   ,' && echo "fix issues with whitelist before continuing" 1>&2 && exit 1
-    echo "# Checks done"
-
-    D="$1"
-    cd "$D"
-    
-    echo "0" > "$TMPD/exit_code"
-    
-    print_manifest > "$MANIFEST_F"
-    MANIFEST_SIZE="$(cat "$MANIFEST_F" | wc -l)"
-
-    COUNTER=1
-    while read FILENAME ; do
-        PROCESS_DESC="$(printf "[%0${#MANIFEST_SIZE}d/%d]" "$COUNTER" "$MANIFEST_SIZE")"
-        COUNTER=$(expr $COUNTER + 1)
-
-        if (( $COUNTER < 1130 )) || (( $COUNTER >= 1240 )) ; then
-            continue
-        fi
-
-        if is_on_white_list "$FILENAME" ; then
-            printf "# ${COLOUR_WHITELIST}$PROCESS_DESC Skipping '%s', it's on the white-list!${COLOUR_CLEAR}\n" "$FILENAME"
-            continue
-        fi
-        
-        if ! is_movie_file "$FILENAME" ; then
-            printf "# ${COLOUR_NOT_MOVIE}$PROCESS_DESC Skipping '%s', not a movie!${COLOUR_CLEAR}\n" "$FILENAME"
-            continue            
-        fi
-        
-        local OUTF="$(output_filename "$FILENAME")"
-
-        DESTD="$(dirname "$FILENAME")"
-        DESTF="$DESTD/$(basename "$OUTF")"
-
-        # printf "# ${COLOUR_PROCESS}$PROCESS_DESC Update '%s'${COLOUR_CLEAR}\n" "$FILENAME"
-        
-        if [ -f "$DESTF" ] && [ "$DESTF" != "$FILENAME" ] ; then
-            # Have we already copied this file in?
-            HASH1=$(md5sum "$OUTF"  | awk '{ print $1 }')
-            HASH2=$(md5sum "$DESTF" | awk '{ print $1 }')
-            if [ "$HASH1" = "$HASH2" ] ; then
-                printf "# ${COLOUR_PROCESS}$PROCESS_DESC file reconciled but requires rm '%s'!${COLOUR_CLEAR}\n" "$FILENAME"
-                echo "rm $(printf %q "$FILENAME")"
-                echo ""
-                continue
-            fi
-        fi
-
-        if [ -f "$DESTF" ] && [ -f "$OUTF" ] && [ "$DESTF" = "$FILENAME" ] ; then
-            HASH1=$(md5sum "$OUTF"  | awk '{ print $1 }')
-            HASH2=$(md5sum "$DESTF" | awk '{ print $1 }')
-            if [ "$HASH1" = "$HASH2" ] ; then
-                printf "# ${COLOUR_ALL_GOOD}$PROCESS_DESC file already reconciled and is in-situ '%s'!${COLOUR_CLEAR}\n" "$FILENAME"
-                continue
-            fi
-        fi
-        
-        if [ ! -f "$OUTF" ] ; then
-            printf "# ${COLOUR_WARNING}$PROCESS_DESC File not processed '%s'${COLOUR_CLEAR}\n" "$FILENAME"
-            continue
-        fi
-
-        printf "# ${COLOUR_PROCESS}$PROCESS_DESC creaing reconcile commands '%s'!${COLOUR_CLEAR}\n" "$FILENAME"
-        
-        echo "rm $(printf %q "$FILENAME")"
-        echo "cp $(printf %q "$OUTF") $(printf %q "$DESTD")/"
-        echo ""
-        
-    done < <(cat "$MANIFEST_F")
-
-    EXITCODE="$(cat $TMPD/exit_code)"
-    return "$EXITCODE"
-}
+# ----------------------------------------------------------------------------------- print database
 
 print_database()
 {
-    local BASE_DIRECTORY="$1"
-    cd "$BASE_DIRECTORY"
-    print_manifest > "$MANIFEST_F"
+    IS_FIRST="True"
     while read FILENAME ; do
-        FNAME="$(printf %s "$BASE_DIRECTORY/$FILENAME" | sed 's,","",g')"
-        FIELDS="$(cached_info "$FILENAME" | grep -v "filename=" | sed 's,^.*=,,' | tr '\n' ',' | sed 's/,$//')"
-        printf '"%s",%s\n' "$FNAME" "$FIELDS"
-    done < <(cat "$MANIFEST_F")
+        INFO="$($SCRIPT_DIR/zencode.sh -i "$FILENAME" -p)"
+        if [ "$INFO" != "" ] ; then
+            if [ "$IS_FIRST" = "True" ] ; then
+                IS_FIRST="False"
+                echo -n "filename,"
+                echo "$INFO" | sed '0,/^filename=/d' | awk -F= '{ print $1 }' | grep -Ev '^ *$' | tr '\n' ',' | sed 's/,$//'
+                echo
+            fi
+            
+            FIELDS="$(echo "$INFO" | sed '0,/^filename=/d' | awk -F= '{ print $2 }' | grep -Ev '^ *$' | tr '\n' ',' | sed 's/,$//')"
+            printf '"%s",%s\n' "$FILENAME" "$FIELDS"
+        fi
+    done < <(print_manifest)
 }
 
-# -- Process Manifest
+# --------------------------------------------------------------------------------- process manifest
 
 ALREADY_DONE=0
 REENCODE_ALREADY_ATTEMPTED=0
@@ -755,11 +289,9 @@ done < <(input_directories)
 
 # -- Setup whitelist if it exists
 
-if [ "$WHITELIST_F" != "" ] ; then
-    while read LINE ; do
-        WHITELIST_SET[$(encode_filename "$LINE")]=1
-    done < <(cat "$WHITELIST_F" ; echo)
-fi
+while read LINE ; do
+    WHITELIST_SET[$(encode_filename "$LINE")]=1
+done < <(print_whitelist)
 
 # -- ACTION! Check the Whitelist
 
@@ -771,7 +303,7 @@ elif [ "$RECONCILE" = "True" ] ; then
     reconcile "$INPUT_D"
     exit $?
 elif [ "$PRINT_DATABASE" = "True" ] ; then
-    print_database "$INPUT_D"
+    print_database
     exit $?
 fi
 
@@ -784,8 +316,6 @@ while read DIR ; do
 done < <(input_directories)
 echo "Whitelist file:   $WHITELIST_F" | tee "$LOG_F"
 echo "Log file:         $LOG_F"       | tee "$LOG_F"
-init_total
-init_transcoded_counter
 process_manifest
 
 cat <<EOF
