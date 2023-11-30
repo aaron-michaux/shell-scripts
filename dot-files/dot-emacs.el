@@ -752,6 +752,11 @@ bracket is present"
 
 (require 'groovy-mode)
 (add-to-list 'auto-mode-alist '("\\.groovy\\'" . groovy-mode))
+(add-to-list 'auto-mode-alist '("Jenkinsfile" . groovy-mode))
+(add-hook 'groovy-mode-hook
+          '(lambda ()
+            (require 'groovy-electric)
+            (groovy-electric-mode)))
 
 ;;; -------------------------------------------------------------- column-marker
 ;; http://www.emacswiki.org/emacs/fill-column-indicator.el
