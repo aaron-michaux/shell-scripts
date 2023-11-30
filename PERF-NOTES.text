@@ -1,0 +1,35 @@
+
+# Linux's perf
+
+ * perf stat ./exe
+ * perf record -g ./exe  (-fno-omit-frame-pointer)
+ * perf report -g 'graph,0.5,caller'
+
+```
+// Unobservable side-effects for 'p'
+static void escape(void*p) {
+   asm volatile("" : : "g"(p) : "memory");
+}
+
+```
+// Unobservable side-effects for all memory
+static void clobber() { asm volatile("" : : : "memory"); }
+```
+
+# TC Malloc and Perf Tools:
+
+https://google.github.io/tcmalloc/gperftools.html
+ * Leak detector
+ * Look at stats for what is/was allocated by what
+   (i.e., the Heap Checker https://gperftools.github.io/gperftools/heap_checker.html)
+
+# Count copies/moves unit-tests
+
+# Automated performance tests:
+ * Stateful performance tests need to know how fast things should be, in order to check for revisions. This means that the CI/CD system needs to keep data on previous runs.
+ * Stateless: make your test relative to something else. Eg, compare lock-free queue versus lock-based queue, and you should see a certain %... stateless checking system for regressions.
+
+120s, memory impact low
+23.09
+develop2-2
+e2e twisted test to test

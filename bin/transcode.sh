@@ -202,6 +202,12 @@ probe_info()
     cat "$DATAF"   
 }
 
+get_pixfmt()
+{
+    local FILENAME="$1"
+    probe_info "$FILENAME" | grep -E "^pix_fmt=" | awk -F= '{ print $2 }'
+}
+
 calc_audio_sample_rate()
 {
     local FILENAME="$1"
@@ -319,6 +325,11 @@ fi
 [ "$QUIET" != "" ] && [ "$ENCODING" = "libx265" ] && QUIET_PARAM="-x265-params log-level=none" || QUIET_PARAM=""
 
 IN_SAMPLE_RATE="$(calc_audio_sample_rate "$IN_FILE" 2>/dev/null)"
+if [ "$IN_SAMPLE_RATE" -eq "$IN_SAMPLE_RATE" 2>/dev/null ] ; then
+    true
+else
+    IN_SAMPLE_RATE="0"
+fi
 if [ "$IN_SAMPLE_RATE" -eq "24000" ] ||
        [ "$IN_SAMPLE_RATE" -eq "44100" ] ||
        [ "$IN_SAMPLE_RATE" -eq "48000" ] ; then
@@ -351,6 +362,9 @@ preset_arg()
 
 print_cmd()
 {
+    PIXFMT="$(get_pixfmt "$IN_FILE")"
+    PIXFMT=""
+    ANALYZE="-probesize 100M -analyzeduration 500M"
     [ "$ENCODING" = "$AV1_LIB" ] && PIXFMT="-pix_fmt yuv420p10le" || PIXFMT="-pix_fmt yuv420p"
 
     # Notes:
@@ -359,10 +373,10 @@ print_cmd()
     # 
     
     if [ "$TWO_PASS" = "False" ] ; then
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -c:s mov_text -f mp4 -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -c:s mov_text -f mp4 -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
         
     else
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f mp4 -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f mp4 -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
         
     fi
 }
