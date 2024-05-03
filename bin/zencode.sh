@@ -11,6 +11,7 @@ MAX_COUNTER=0
 DESIRED_CODEC="hevc"
 CRF="23"
 MAX_W="1024"
+CONTAINER="mp4"
 
 COLOUR_ERROR='\e[0;91m'
 COLOUR_WHITELIST='\e[0;97m'
@@ -207,7 +208,7 @@ homefilename()
 output_base_filename()
 {
     local FILENAME="$1"
-    echo "$(cd "$(dirname "$FILENAME")" ; pwd -P)/$(extensionless "$(basename "$FILENAME")").mp4"
+    echo "$(cd "$(dirname "$FILENAME")" ; pwd -P)/$(extensionless "$(basename "$FILENAME")").$CONTAINER"
 }
 
 tmp_filename()
@@ -255,6 +256,10 @@ cached_info()
         elif [ "$EXT" = "mp3" ] ; then
             IS_MOVIE="False"            
         elif [ "$EXT" = "png" ] ; then
+            IS_MOVIE="False"            
+        elif [ "$EXT" = "jpg" ] ; then
+            IS_MOVIE="False"            
+        elif [ "$EXT" = "pdf" ] ; then
             IS_MOVIE="False"            
         fi
         echo "is_movie=$IS_MOVIE"                               >> "$DATAF"
@@ -478,16 +483,16 @@ examine_one()
         return 0
     fi
 
-    if is_skip_encode "$FILENAME" ; then
-        printf "${COLOUR_DONE}${PROCESS_DESC}skip encode, filename: %s, reason: %s${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.skip_encode "$FILENAME" 2>/dev/null | awk -F= '{ print $2 }' | tr '\n' ' ' | sed 's,^ *",,' | sed 's," *$,,' )"
-        return 0
-    fi
-        
     if ! lazy_is_movie_file "$FILENAME" ; then
         printf "${COLOUR_NOT_MOVIE}${PROCESS_DESC}not a movie, filename: %s${COLOUR_CLEAR}\n" "$FILENAME"
         return 0
     fi
 
+    if is_skip_encode "$FILENAME" ; then
+        printf "${COLOUR_DONE}${PROCESS_DESC}skip encode, filename: %s, reason: %s${COLOUR_CLEAR}\n" "$FILENAME" "$(getfattr -n user.skip_encode "$FILENAME" 2>/dev/null | awk -F= '{ print $2 }' | tr '\n' ' ' | sed 's,^ *",,' | sed 's," *$,,' )"
+        return 0
+    fi
+        
     local BACK_F="$(backup_filename "$FILENAME")"
     
     if [ -f "$BACK_F" ] ; then
@@ -516,7 +521,7 @@ examine_one()
 
     echo -e "${COLOUR_PROCESS}${PROCESS_DESC}transcoding $FILENAME${COLOUR_CLEAR}"
 
-    if [ "$DO_SUMMARY" = "True" ] ; then
+    if [ "$DO_SUMMARY" = "False" ] ; then
         # Prepare to reencode
         local TEMP_F="$(tmp_filename "$FILENAME")"    
         mkdir -p "$(dirname "$BACK_F")"
@@ -530,6 +535,12 @@ examine_one()
     fi
 }
 
+if [ "$(extension "$INPUT_FILENAME")" = "mkv" ] ; then
+    CONTAINER="mkv"
+elif [ "$(extension "$INPUT_FILENAME")" = "mp4" ] ; then
+    CONTAINER="mp4"
+fi
+
 if [ "$DO_CLEAR_ERRORS" = "True" ] ; then
     setfattr --remove=user.is_movie            "$INPUT_FILENAME" 2>/dev/null || true
     setfattr --remove=user.skip_encode         "$INPUT_FILENAME" 2>/dev/null || true
@@ -542,13 +553,11 @@ if [ "$DO_PRINT_BACKUP" = "True" ] ; then
 fi
 
 if [ "$DO_PRINT" = "True" ] ; then
-    if lazy_is_movie_file "$INPUT_FILENAME" ; then
-        getfattr -d -m - "$INPUT_FILENAME"
-        echo "Info-line: $(print_info "$INPUT_FILENAME")"
-        echo
-        cached_info "$INPUT_FILENAME"
-        echo
-    fi
+    getfattr -d -m - "$INPUT_FILENAME"
+    echo "Info-line: $(print_info "$INPUT_FILENAME")"
+    echo
+    cached_info "$INPUT_FILENAME"
+    echo
 fi
 
 if [ "$DO_ENCODE" = "True" ] || [ "$DO_SUMMARY" = "True" ] ; then
