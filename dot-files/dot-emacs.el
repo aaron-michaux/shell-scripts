@@ -70,7 +70,7 @@
  '(inhibit-startup-screen t)
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(package-selected-packages
-   '(groovy-mode dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
+   '(go-mode groovy-mode dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -285,22 +285,31 @@
   :bind (:map lsp-mode-map
                 ("C-c C-b" . lsp-ui-doc-glance))
   :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (c-mode . lsp)
          (c++-mode . lsp)
          (python-mode . lsp)
          ;; if you want which-key integration
          (lsp-mode . lsp-enable-which-key-integration))
+
   :commands lsp)
 
  (use-package lsp-ui :commands lsp-ui-mode)
 
  (add-hook 'c-mode-hook 'lsp)
  (add-hook 'c++-mode-hook 'lsp)
-
+ 
  ;; The lsp server is now really easy to restart
  (setq lsp-keep-workspace-alive nil)
  (setq lsp-idle-delay 0.1)
  (setq lsp-auto-guess-root t)
 
+ (require 'lsp-mode)
+ (lsp-register-client
+  (make-lsp-client :new-connection (lsp-tramp-connection "clangd")
+                   :major-modes '(c-mode c++-mode)
+                   :remote? t
+                   :server-id 'clangd-remote))
+ 
  (with-eval-after-load 'lsp-mode
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)))
 
@@ -311,11 +320,10 @@
 ; https://github.com/joaotavora/eglot
 
 ;;; -------------------------------------------------------------------- Company
-
+;; Text completion framework
 (use-package company)
 
 ;;; ---------------------------------------------------------------- Integration
-
 ; Vertigo integration
 ;; (setq completion-in-region-function
 ;;       (lambda (&rest args)
@@ -400,6 +408,7 @@
 
 ; Cache project index
 ;(setq projectile-enable-caching nil)
+(setq projectile-enable-caching t)
 
 ;;; ------------------------------------------------------------------ yaml mode
 
@@ -417,6 +426,12 @@
 
 ;; For .cpt files: http://ccrypt.sourceforge.net
 (require 'ps-ccrypt)
+
+;;; -------------------------------------------------------------------- go-mode
+
+(require 'go-mode)
+(setq auto-mode-alist
+      (append '(("\\.go$" . go-mode)) auto-mode-alist))
 
 ;;; ------------------------------------------------------------------------ rst
 
@@ -841,6 +856,11 @@ bracket is present"
 
 ;; On mac
 (setq ns-pop-up-frames nil)
+
+;; Projectile sucks across *tramp*, and work requires *tramp*
+(when (string= system-name "DWH7Y69M2G")
+ (setq tramp-verbose 6)
+ (setq projectile-mode-line "Projectile"))
 
 ;;; ------------------------------------------------------------------ Blake's-7
 
