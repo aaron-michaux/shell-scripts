@@ -2,7 +2,7 @@
 
 set -e
 
-TAGS_DIR="/home/BRCMLTD/am894222/.cache/bazel/TAGS"
+TAGS_DIR="$HOME/.local/${USER}-projects/TAGS"
 
 
 show_help()
@@ -29,7 +29,14 @@ print_dirs()
 mkdir -p "/home/BRCMLTD/am894222/.cache/bazel/TAGS"
 cd "/home/BRCMLTD/am894222/.cache/bazel/TAGS"
 
+echo
+echo "CTAGS:    $(which ctags)"
+echo "TAGS_DIR: $TAGS_DIR"
+echo
 while read DIR ; do
+    echo "   $DIR"
     find "$DIR" | ctags -e -L -
 done < <(print_dirs)
-
+echo
+echo "Done"
+echo
