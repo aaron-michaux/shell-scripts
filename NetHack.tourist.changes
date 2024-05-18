@@ -1,0 +1,41 @@
+ * src/u_init.c
+   All skills can be Exper
+   Added "matter" and "clerical" spells
+ * src/weapon.c
+   Skill advancement only ever takes 1 slot
+   Feedback when gaining/losing skill slots
+ * src/dothrow.c
+   Darts don't break
+ * src/spell.c
+   Learn spells for 100k turns
+   Metal glove/foot penalty is 1
+   Robe always subtracts from penalty
+ * src/objects.c
+   Spellbook weight 50 -> 5
+ * src/role.c
+   Metal armour penalty is 1
+   Tourist has low-xl/high-xl energy modifiers of wizard
+ * src/do.c
+   Rider never tries to rise again (if level is full)
+ * src/attrib.c
+   Exercising gives some more feedback
+   Levels 0-9 get 1 skill-slot, 10-19 get 2, and 20+ get 3
+ * src/eat.c
+   Eating lists your nutrition
+ * src/allmain.c
+   Tourist regenerates energy as fast as a wizard
+ * src/exper.c
+   Tourist has same energy modifier as Knight/Healer
+ * src/pline.c
+   Output to msgwindow is also printed to stdout
+ * src/mkobj.c
+   33% of statues contain a spellbook
+ * src/mklev.c
+   Shops can happen on level 1, and there's a better chance of generating a shop
+ * src/shk.c
+   Shop prices are 10%. (It's so annoying and easy to steal from shops. Yawn.)
+ * src/do_wear.c
+   For neutrals, Helm of Opposite Alignment alignment change is always random
+   The Helm of Opposite Alignment doesn't auto-curse
+ * src/fountain.c
+   Dipping a scroll/spellbook in a fountain does not dry up fountain, and no chance of special effect

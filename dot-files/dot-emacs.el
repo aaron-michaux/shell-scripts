@@ -69,6 +69,7 @@
  '(inhibit-startup-echo-area-message nil)
  '(inhibit-startup-screen t)
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
+ '(lsp-clangd-binary-path "/usr/local/bin/clangd")
  '(package-selected-packages
    '(go-mode groovy-mode dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
@@ -123,6 +124,9 @@
 (load-theme 'darcula t)
 (load-theme 'vscode-dark-plus t)
 ;;(load-theme 'solarized-light t)
+
+;; Prevent warning buffer from constantly popping up
+;(native-comp-async-report-warnings-errors nil)
 
 ;; Nice red cursor
 (set-cursor-color "#ff0000")
@@ -616,7 +620,8 @@ will be killed."
   "Usage: (add-hook 'before-save-hook 'clang-format-before-save)."
   (interactive)
   (when (eq major-mode 'c++-mode) (clang-format-buffer))
-  (when (eq major-mode 'c-mode) (clang-format-buffer)))
+  ;;(when (eq major-mode 'c-mode) (clang-format-buffer))
+  )
 
 (add-hook 'before-save-hook 'my-clang-format-before-save)
 
@@ -902,6 +907,7 @@ bracket is present"
 (global-set-key (kbd "S-C-<up>") 'enlarge-window)
 (global-set-key [(hyper s)] 'shell)
 (global-set-key [(hyper l)] 'save-all)            ; save-all, (hyper s) not work
+(global-set-key ["s-l"] 'save-all)                ; save-all, encore
 (global-set-key [(hyper z)] 'undo)                ; undo. Press C-r to make redo
 (global-set-key [(hyper x)] 'kill-region)         ; cut
 (global-set-key [(hyper c)] 'copy-region-as-kill) ; copy
@@ -909,6 +915,7 @@ bracket is present"
 (global-set-key (kbd "M-v") 'yank-pop)            ; paste previous
 (global-set-key [(hyper %)] 'query-replace)       ; mac queryreplace alternative
 (global-set-key [(hyper u)] 'string-inflection-my-style-cycle)
+(global-set-key (kbd "s-u") 'string-inflection-my-style-cycle)
 
 (global-set-key [(hyper r)] 'revert-buffer)
 

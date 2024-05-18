@@ -28,6 +28,7 @@ ENCODING=libx265
 TWO_PASS="False"
 PRESET="slow"
 MAX_QUEUE_SIZE=10240
+CONTAINER="mp4"
 
 # Set the default CRF
 if [ "$ENCODING" = "libx264" ] ; then
@@ -302,6 +303,12 @@ QUIET="-v quiet"
     echo "Output file extension must be 'mp4'. Got: '$O'" 1>&2 && \
     exit 1
 
+if [ "$(extension "$O")" = "mkv" ] ; then
+    CONTAINER="matroska"
+elif [ "$(extension "$O")" = "mp4" ] ; then
+    CONTAINER="mp4"
+fi
+
 # ----------------------------------------------------------------------- Action
 
 if [ "$PRINT_INFO" = "True" ] ; then
@@ -370,13 +377,14 @@ print_cmd()
     # Notes:
     #    "-strict -1" is for dealing with unusal sample rates in mp3s
     #    "-ar 48000"  forces the audio sample rate to 48k
-    # 
+    # -c:s mov_text
+    # -scodec copy
     
     if [ "$TWO_PASS" = "False" ] ; then
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -c:s mov_text -f mp4 -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -scodec copy -f $CONTAINER -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
         
     else
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f mp4 -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f $CONTAINER -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
         
     fi
 }

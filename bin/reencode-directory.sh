@@ -16,6 +16,7 @@ KEEP_GOING="False"
 CHECK_WHITELIST="False"
 PRINT_SUMMARY="False"
 PRINT_DATABASE="False"
+PRINT_MANIFEST="False"
 
 TOTALS_F="$TMPD/totals"
 TRANSCODED_COUNTER_F="$TMPD/transcoded_counter"
@@ -59,6 +60,7 @@ show_help()
 
    Options With Defaults      
 
+      -f <filename>       Ready input directories from <filename>
       -c|--codec <codec>  The desired codec; default is $DESIRED_CODE
       --crf <int>         Constant quality rate to use with codec; default is $CRF
       --max-bitrate <int> Do not encode desired-codec videos with bitrate less than this; default i $MAX_BITRATE (kb/s)
@@ -70,11 +72,9 @@ show_help()
                           are always relative to the user's home directory.
 
       --check-whitelist   Check the passed whitelist:
-                           1. Do any files in the whitelist not exist in source?
-
-      --summary           Prints a summary
-  
+      --summary           Prints a summary 
       --print-database    Prints our (csv) format data
+      --manifest          Just prints the manifest
 
 EOF
 }
@@ -89,7 +89,8 @@ touch "$INPUT_DIR_FILE"
 while (( $# > 0 )) ; do
     ARG="$1"
     shift
-    [ "$ARG" = "-i" ] && echo "$1" >> "$INPUT_DIR_FILE" && shift && continue
+    [ "$ARG" = "-i" ] && printf "%s\n" "$1" >> "$INPUT_DIR_FILE" && shift && continue
+    [ "$ARG" = "-f" ] && cat "$1" >> "$INPUT_DIR_FILE" && shift && continue
     [ "$ARG" = "-w" ] && WHITELIST_F="$1" && shift && continue
     [ "$ARG" = "-c" ]   || [ "$ARG" = "--code" ] && DESIRED_CODEC="$1" && shift && continue
     [ "$ARG" = "-crf" ] || [ "$ARG" = "--crf"  ] && CRF="$1"           && shift && continue
@@ -98,6 +99,7 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "--check-whitelist" ] && CHECK_WHITELIST="True" && continue
     [ "$ARG" = "--summary" ]         && PRINT_SUMMARY="True" && continue
     [ "$ARG" = "--print-database" ]  && PRINT_DATABASE="True" && continue
+    [ "$ARG" = "-m" ] || [ "$ARG" = "--manifest" ] && PRINT_MANIFEST="True" && continue
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done
 
@@ -261,15 +263,15 @@ get_result_count()
 
 print_line()
 {
-    if [ "$PRINT_SUMMARY" = "True" ] ; then
-        printf "$@"  | tee -a "$LOG_F"
-    fi
+    printf "$@"  | tee -a "$LOG_F"
 }
 
 process_manifest()
 {
     MANIFEST_SIZE="$(print_manifest | wc -l)"
     MANIFEST_DIGITS=${#MANIFEST_SIZE}
+
+    [ "$PRINT_SUMMARY" = "True" ] && SUMMARY_ARG="--summary" || SUMMARY_ARG=""
     
     # 1-index counter to be human readable
     COUNTER=1
@@ -282,17 +284,14 @@ process_manifest()
             WHITELIST_COUNT=$(expr $WHITELIST_COUNT + 1)
             
         else
-            if [ "$PRINT_SUMMARY" = "True" ] ; then
-                "$SCRIPT_DIR/zencode.sh" -i "$FILENAME" --summary | tee "$TMPD/output" \
-                    && SUCCESS="True" || SUCCESS="False"                
-            else
-                "$SCRIPT_DIR/zencode.sh" -i "$FILENAME" | tee -a "$LOG_F" | tee "$TMPD/output" \
-                    && SUCCESS="True" || SUCCESS="False"
-            fi
+            "$SCRIPT_DIR/zencode.sh" $SUMMARY_ARG -i "$FILENAME" 2>&1 \
+                | tee -a "$LOG_F" \
+                | tee "$TMPD/output" \
+                && SUCCESS="True" || SUCCESS="False"
 
             OUTPUT="$(cat "$TMPD/output")"
             if [ "$SUCCESS" = "False" ] ; then
-                record_movie_result "$FILENAME" ERROR_COUNT
+                record_movie_result "$OUTPUT" ERROR_COUNT
             elif [[ "$OUTPUT" =~ already\ done ]] ; then
                 record_movie_result "$FILENAME" ALREADY_DONE
             elif [[ "$OUTPUT" =~ re-encode\ attempt\ was\ already\ made ]] ; then
@@ -351,6 +350,10 @@ if [ "$CHECK_WHITELIST" = "True" ] ; then
 elif [ "$PRINT_DATABASE" = "True" ] ; then
     print_database
     exit $?
+
+elif [ "$PRINT_MANIFEST" = "True" ] ; then
+    print_manifest
+    exit 0
 fi
 
 # -- ACTION! Re-encode

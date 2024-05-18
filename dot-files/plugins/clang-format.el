@@ -35,7 +35,7 @@
   "Format code using clang-format."
   :group 'tools)
 
-(defcustom clang-format-executable "/usr/bin/clang-format"
+(defcustom clang-format-executable "/usr/local/bin/clang-format"
  "Location of the clang-format executable.
  A string containing the name or the full path of the executable."
   :group 'clang-format
