@@ -37,9 +37,9 @@ ensure_link()
     local DEST="$2"
 
     if [ ! -e "$SOURCE" ] ; then echo "File/directory not found '$SOURCE'" ; exit 1 ; fi
-    sudo mkdir -p "$(dirname "$DEST")"
-    sudo rm -f "$DEST"
-    sudo ln -s "$SOURCE" "$DEST"
+    $SUDO_CMD mkdir -p "$(dirname "$DEST")"
+    $SUDO_CMD rm -f "$DEST"
+    $SUDO_CMD ln -s "$SOURCE" "$DEST"
 }
 
 is_group()
@@ -54,7 +54,7 @@ test_add_group()
     shift    
     for GROUP in "$@" ; do
         if is_group "$GROUP" ; then
-            sudo chgrp -R "$GROUP" "$DIR"
+            $SUDO_CMD chgrp -R "$GROUP" "$DIR"
             return 0
         fi
     done
@@ -66,12 +66,12 @@ ensure_directory()
     local D="$1"
     if [ ! -d "$D" ] ; then
         echo "Directory '$D' does not exist, creating..."
-        sudo mkdir -p "$D"
+        $SUDO_CMD mkdir -p "$D"
     fi
     if [ ! -w "$D" ] ; then
         echo "Directory '$D' is not writable by $USER, chgrp..."
         test_add_group "$D" "staff" "adm" "$USER" 
-        sudo chmod 775 "$D"
+        $SUDO_CMD chmod 775 "$D"
     fi
     if [ ! -d "$D" ] || [ ! -w "$D" ] ; then
         echo "Failed to ensure writable directory '$D', should you run as root?"
@@ -106,7 +106,7 @@ install_dependences()
     # brew commands (macos), yum (fedora) etc.
     if [ "$PLATFORM" = "ubuntu" ] ; then
         export DEBIAN_FRONTEND=noninteractive
-        sudo apt-get install -y -qq \
+        $SUDO_CMD apt-get install -y -qq \
              wget subversion automake swig python2.7-dev libedit-dev libncurses5-dev  \
              gcc-multilib python3-dev python3-pip python3-tk python3-lxml python3-six \
              libparted-dev flex sphinx-doc guile-2.2 gperf gettext expect tcl dejagnu \
@@ -114,9 +114,9 @@ install_dependences()
              libxapian-dev
 
     elif [ "$PLATFORM" = "oracle" ] || [ "$PLATFORM" = "fedora" ] ; then
-        which bison 1>/dev/null 2>/dev/null || sudo yum install -y bison
+        which bison 1>/dev/null 2>/dev/null || $SUDO_CMD yum install -y bison
         if [ ! -x /usr/bin/xapian-config ] ;then
-           sudo yum install -y xapian-core-devel
+           $SUDO_CMD yum install -y xapian-core-devel
         fi
         
     elif [ "$PLATFORM" = "macos" ] ; then

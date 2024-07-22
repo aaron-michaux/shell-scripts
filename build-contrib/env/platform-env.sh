@@ -2,9 +2,12 @@
 
 # ------------------------------------------------------ Host Platform Variables
 
-export TOOLS_DIR=/opt/tools
-export TOOLCHAINS_DIR=/opt/toolchains
-export ARCH_DIR=/opt/arch
+ROOT="$HOME/.local/${USER}-projects"
+export TOOLS_DIR=$ROOT/tools
+export TOOLCHAINS_DIR=$ROOT/toolchains
+export ARCH_DIR=$ROOT/arch
+
+export SUDO_CMD="$(which sudo 2>/dev/null && echo "sudo")"
 
 # The default clang/gcc with the default cxxstd
 # Note: on macos, the major versions of these are installed using brew
