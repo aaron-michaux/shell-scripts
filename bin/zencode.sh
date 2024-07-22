@@ -53,7 +53,7 @@ show_help()
    Other Options
 
       -p|--print           Print file information, including attributes, and exit
-      --clear-errors       Clear error attributes, making the file available for re-encoding again
+      -f|--clear-errors    Clear error attributes, making the file available for re-encoding again
 
 EOF
 }
@@ -80,7 +80,7 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-p" ] || [ "$ARG" = "--print" ]   && DO_PRINT="True"   && DO_ENCODE="False" && continue
     [ "$ARG" = "-s" ] || [ "$ARG" = "--summary" ] && DO_SUMMARY="True" && DO_ENCODE="False" && continue
     [ "$ARG" = "-b" ] && DO_PRINT_BACKUP="True" && DO_ENCODE="False" && continue
-    [ "$ARG" = "--clear-errors" ] && DO_CLEAR_ERRORS="True" && continue
+    [ "$ARG" = "-f" ] || [ "$ARG" = "--clear-errors" ] && DO_CLEAR_ERRORS="True" && continue
     
     echo "Unexpected argument: '$ARG'" 1>&2 && exit 1
 done

@@ -29,6 +29,11 @@ TWO_PASS="False"
 PRESET="slow"
 MAX_QUEUE_SIZE=10240
 CONTAINER="mp4"
+PROGRESS_OPT=""
+
+IS_SBS="False"
+DFOV=130
+PITCH=0
 
 # Set the default CRF
 if [ "$ENCODING" = "libx264" ] ; then
@@ -75,6 +80,12 @@ show_help()
       --1-pass          Use 1-pass encoding
       --2-pass          Use 2-pass encoding
 
+      --sbs             Flatten a sbs video
+      --dfov  <integer> The "zoom in/out" field of view; default i $DFOV
+      --pitch <integer> Up/down for sbs; default is $PITCH
+
+      --progress        Show progress
+
    Examples:
 
       # Transcode 'movie.mp4' at 2200 kbit/s, skipping 30s, and duration is 10s
@@ -94,8 +105,8 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "-y" ]  && OVERWRITE=1 && continue
     [ "$ARG" = "--print-bitrate" ]  && PRINT_BITRATE=1 && continue
     [ "$ARG" = "--info" ] || [ "$ARG" = "-info" ] || [ "$ARG" = "-p" ] && PRINT_INFO="True" && continue
-    [ "$ARG" = "-f" ]  && FORMAT="$1" && shift && continue
-    [ "$ARG" = "--mw" ] || [ "$ARG" = "-mw" ] && MAX_W="$1" && shift && continue
+    [ "$ARG" = "--format" ] || [ "$ARG" = "-f" ]  && FORMAT="$1" && shift && continue
+    [ "$ARG" = "--mw" ]     || [ "$ARG" = "-mw" ] && MAX_W="$1" && shift && continue
     [ "$ARG" = "-b" ]  && BITRATE="$1" && USE_CRF="False" && BITRATE_SPECIFIED="True" && shift && continue
     [ "$ARG" = "--crf" ] || [ "$ARG" = "-crf" ] && CRF="$1"  && USE_CRF="True"  && CRF_SPECIFIED="True" && shift && continue
     [ "$ARG" = "--preset" ] || [ "$ARG" = "-preset" ] && PRESET="$1" && shift && continue
@@ -110,6 +121,12 @@ while (( $# > 0 )) ; do
     [ "$ARG" = "--1-pass" ] || [ "$ARG" = "-1-pass" ] && TWO_PASS="False" && continue
     [ "$ARG" = "--2-pass" ] || [ "$ARG" = "-2-pass" ] && TWO_PASS="True"  && continue
 
+    [ "$ARG" = "--sbs" ] && IS_SBS="True" && continue
+    [ "$ARG" = "--dfov" ] && DFOV="$1" && shift && continue
+    [ "$ARG" = "--pitch" ] && PITCH="$1" && shift && continue
+
+    [ "$ARG" = "--progress" ] && PROGRESS_OPT="-stats" && continue
+    
     if [ "$O" = "" ] ; then
         O="$ARG"
     else
@@ -163,7 +180,16 @@ fi
 [ ! -d "$(dirname "$OUT_FILE")" ] && \
     echo "Output directory does not exist: $(cd "$(dirname "$OUT_FILE")" ; pwd)" 1>&2 && \
     exit 1
-                                                                        
+! [ "$DFOV" -eq "$DFOV" 2>/dev/null ] && \
+    echo "dfov should be an integer: got '$DFOV'" 1>&2 && \
+    exit 1
+! [ "$PITCH" -eq "$PITCH" 2>/dev/null ] && \
+    echo "pitch should be an integer: got '$PITCH'" 1>&2 && \
+    exit 1
+[ "$IS_SBS" = "True" ] && [ "$FORMAT" = "" ] && \
+    echo "must specify the output format size when decoding sbs video" 1>&2 && \
+    exit 1
+
 # ------------------------------------------------------------------------------
 
 PPWD="$(cd "$(dirname "$0")" ; pwd)"
@@ -288,6 +314,7 @@ IN_FILE="$(absfilename "$F")"
 SS_OPT=""
 TT_OPT=""
 FMT_OPT=""
+VF_OPT=""
 QUIET="-v quiet"
 [ "$SS" != "" ] && [ "$SS" != "00:00:00.000" ] && SS_OPT="-ss $SS"
 [ "$TT" != "" ] && TT_OPT="-t $TT"
@@ -297,6 +324,10 @@ QUIET="-v quiet"
 [ "$MAX_W" != "0" ] && FMT_OPT="-vf \"scale='min($MAX_W,iw)':-2\""
 [ "$ENCODING" = "libx264" ] && PASS1="-pass 1" && PASS2="-pass 2"
 [ "$ENCODING" = "libx265" ] && PASS1="-x265-params pass=1" && PASS2="-x265-params pass=2"
+if [ "$IS_SBS" = "True" ] ; then
+    VF_OPT="-vf v360=input=hequirect:output=flat:in_stereo=sbs:out_stereo=2d:d_fov=$DFOV:w=$(echo $FORMAT | awk -F: '{ print $1 }'):h=$(echo $FORMAT | awk -F: '{ print $1 }'):pitch=$PITCH"
+    FMT_OPT=""
+fi
 
 # Check the extension of $OUT_FILE
 [ "$(extension "$O")" != "mp4" ] && [ "$(extension "$O")" != "mkv" ] && [ "$RUN_ENCODE" = "True" ] && \
@@ -373,7 +404,7 @@ print_cmd()
     PIXFMT=""
     ANALYZE="-probesize 100M -analyzeduration 500M"
     [ "$ENCODING" = "$AV1_LIB" ] && PIXFMT="-pix_fmt yuv420p10le" || PIXFMT="-pix_fmt yuv420p"
-
+    
     # Notes:
     #    "-strict -1" is for dealing with unusal sample rates in mp3s
     #    "-ar 48000"  forces the audio sample rate to 48k
@@ -381,10 +412,10 @@ print_cmd()
     # -scodec copy
     
     if [ "$TWO_PASS" = "False" ] ; then
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -scodec copy -f $CONTAINER -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE $PROGRESS_OPT -y $SS_OPT -i $(printf %q "$IN_FILE")  $VF_OPT $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -scodec copy -f $CONTAINER -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
         
     else
-        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f $CONTAINER -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
+        echo "nice ffmpeg -nostdin -hide_banner $QUIET $ANALYZE $PROGRESS_OPT -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $VF_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS1 -an -f null /dev/null && nice ffmpeg -nostdin -hide_banner $QUIET -y $SS_OPT -i $(printf %q "$IN_FILE")  $TT_OPT $FMT_OPT $PIXFMT -c:v $ENCODING -preset $(preset_arg) $QUIET_PARAM $QUALITY_ARG $PASS2 -c:a libmp3lame $SAMPLE_RATE_ARG -b:a 192k -f $CONTAINER -max_muxing_queue_size $MAX_QUEUE_SIZE $(printf %q "$OUT_FILE")"
         
     fi
 }
