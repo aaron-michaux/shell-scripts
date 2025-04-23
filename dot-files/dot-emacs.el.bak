@@ -61,9 +61,7 @@
  '(blink-cursor-mode nil)
  '(color-theme-is-global t)
  '(custom-safe-themes
-   '("fc5fcb6f1f1c1bc01305694c59a1a861b008c534cae8d0e48e4d5e81ad718bc6"
-     "1e7e097ec8cb1f8c3a912d7e1e0331caeed49fef6cff220be63bd2a6ba4cc365"
-     default))
+   '("fc5fcb6f1f1c1bc01305694c59a1a861b008c534cae8d0e48e4d5e81ad718bc6" "1e7e097ec8cb1f8c3a912d7e1e0331caeed49fef6cff220be63bd2a6ba4cc365" default))
  '(display-time-mode t)
  '(fringe-mode 0 nil (fringe))
  '(global-font-lock-mode t)
@@ -73,14 +71,7 @@
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(lsp-clangd-binary-path "/usr/local/bin/clangd")
  '(package-selected-packages
-   '(bazel bytecomp clang-format company company-precient
-           company-prescient counsel-etags dockerfile-mode flycheck
-           go-mode groovy-mode lsp-mode lsp-ui origami php-mode
-           plantuml-mode prescient prettier-js projectile
-           protobuf-mode string-inflection vertico vertico-prescient
-           vertigo vertigo-precient vertigo-prescient visual-regexp
-           visual-regexp-steroids wc-mode web-mode which-key
-           window-margin yaml-mode))
+   '(go-mode groovy-mode dockerfile-mode plantuml-mode bazel yaml-mode clang-format counsel-etags flycheck vertico-prescient php-mode protobuf-mode window-margin wc-mode bytecomp string-inflection visual-regexp-steroids visual-regexp origami projectile vertigo-prescient company-prescient vertigo-precient company-precient prescient which-key vertico vertigo lsp-ui lsp-mode company web-mode prettier-js))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -123,7 +114,6 @@
 (set-keyboard-coding-system nil)
 
 (set-fill-column 80)
-
 
 ;;; ---------------------------------------------------------------------- Theme
 
@@ -194,7 +184,6 @@
 		       (lambda () (delete-windows-on "*Compile-Log*"))))))
 (add-hook 'after-save-hook 'autocompile)
 
-
 ;;; ------------------------------------------------------------ smarter-backups
 
 (setq
@@ -233,7 +222,6 @@
  (let ((face (or (get-char-property (point) 'read-face-name)
 		 (get-char-property (point) 'face))))
   (if face (message "Face: %s" face) (message "No face at %d" pos))))
-  
 
 ;;; ---------------------------------------------------------- Buffer Management
 
@@ -287,7 +275,6 @@
   ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
   (setq vertico-cycle t)
   )
-  
 
 ;;; ------------------------------------------------------------------------ LSP
 
@@ -310,7 +297,7 @@
 
   :commands lsp)
 
- ;(use-package lsp-ui :commands lsp-ui-mode)
+ (use-package lsp-ui :commands lsp-ui-mode)
 
  (add-hook 'c-mode-hook 'lsp)
  (add-hook 'c++-mode-hook 'lsp)
@@ -330,8 +317,7 @@
  (with-eval-after-load 'lsp-mode
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)))
 
-;; (when 'true (setup-lsp))
-
+(when 'true (setup-lsp))
 
 ;;; ---------------------------------------------------------------------- Eglot
 ; eglot is an alternative to LSP, in case I get sick of LSP
@@ -439,7 +425,6 @@
 ;;; ----------------------------------------------------------------- Word Count
 
 (require 'wc-mode)
-
 
 ;;; ------------------------------------------------------------ mc-auto-encrypt
 
@@ -618,8 +603,8 @@ will be killed."
 (add-hook 'c-mode-hook 'my-cpp-setup)
 (add-hook 'c++-mode-hook 'my-cpp-setup)
 
-;(add-hook 'c-mode-hook #'lsp-deferred)
-;(add-hook 'c++-mode-hook #'lsp-deferred)
+(add-hook 'c-mode-hook #'lsp-deferred)
+(add-hook 'c++-mode-hook #'lsp-deferred)
 
 ;;; --------------------------------------------------------------- clang format
 
@@ -662,7 +647,6 @@ will be killed."
 ;;; -------------------------------------------------------------------- Haskell
  
 (setq haskell-program-name "ghci")
-
 
 ;;; --------------------------------------------------- Working with Scheme/Lisp
 
@@ -733,23 +717,12 @@ bracket is present"
 (add-hook 'coffee-mode-hook '(lambda () (coffee-custom)))
 
 ;;; ------------------------------------------------------------------------ php
-;; Put follow code into init.el
-;; (when (file-directory-p (concat (getenv "HOME") "/.emacs.d/plugins/php-mode"))
-;;   (load )
-
-(autoload 'php-mode (expand-file-name "~/.emacs.d/plugins/php-mode/lisp/php-mode") "\
-Major mode for editing PHP code.
-
-\\{php-mode-map}
-
-\(fn)" t nil)
-
-(add-to-list 'auto-mode-alist '("\\.\\(?:php\\|phtml\\)\\'" . php-mode))
-
-;; ;; Any code below is *unnecessary*
-;; (require 'php-mode)
-;; (add-to-list 'load-path (expand-file-name "~/path/to/php-mode"))
-;; ;; (add-to-list 'auto-mode-alist '("\\.php\\'" . php-mode))
+(use-package php-mode)
+(require 'php-mode)
+(setq auto-mode-alist
+  (append '(("\\.php$" . php-mode)
+            ("\\.module$" . php-mode))
+              auto-mode-alist))
 
 ;;; ---------------------------------------------------------------------- ninja
 

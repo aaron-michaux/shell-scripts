@@ -61,7 +61,7 @@ show_help()
    Options With Defaults      
 
       -f <filename>       Ready input directories from <filename>
-      -c|--codec <codec>  The desired codec; default is $DESIRED_CODE
+      -c|--codec <codec>  The desired codec; default is $DESIRED_CODEC
       --crf <int>         Constant quality rate to use with codec; default is $CRF
       --max-bitrate <int> Do not encode desired-codec videos with bitrate less than this; default i $MAX_BITRATE (kb/s)
       -k                  Keep going if there's an error

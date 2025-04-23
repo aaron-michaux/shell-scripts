@@ -32,8 +32,8 @@ CONTAINER="mp4"
 PROGRESS_OPT=""
 
 IS_SBS="False"
-DFOV=130
-PITCH=0
+DFOV=120
+PITCH=-10
 
 # Set the default CRF
 if [ "$ENCODING" = "libx264" ] ; then
@@ -325,7 +325,7 @@ QUIET="-v quiet"
 [ "$ENCODING" = "libx264" ] && PASS1="-pass 1" && PASS2="-pass 2"
 [ "$ENCODING" = "libx265" ] && PASS1="-x265-params pass=1" && PASS2="-x265-params pass=2"
 if [ "$IS_SBS" = "True" ] ; then
-    VF_OPT="-vf v360=input=hequirect:output=flat:in_stereo=sbs:out_stereo=2d:d_fov=$DFOV:w=$(echo $FORMAT | awk -F: '{ print $1 }'):h=$(echo $FORMAT | awk -F: '{ print $1 }'):pitch=$PITCH"
+    VF_OPT="-vf v360=input=hequirect:output=flat:in_stereo=sbs:out_stereo=2d:d_fov=$DFOV:w=$(echo $FORMAT | awk -F: '{ print $1 }'):h=$(echo $FORMAT | awk -F: '{ print $2 }'):pitch=$PITCH"
     FMT_OPT=""
 fi
 

@@ -1,7 +1,7 @@
 ;;; ps-ccrypt.el --- reading/writing/loading encrypted files
 
 ;; Copyright (C) 1993, 1994, 1995, 1997  Free Software Foundation, Inc.
-;; Copyright (C) 2001, 2003, 2006, 2008, 2010 Peter Selinger
+;; Copyright (C) 2001-2018 Peter Selinger
 
 ;; Author: jka@ece.cmu.edu (Jay K. Adams) (jka-compr.el)
 ;; Changes: selinger@users.sourceforge.net (Peter Selinger) (ps-ccrypt.el)
@@ -75,35 +75,53 @@
 
 ;; CHANGES:
 ;;
-;; 2001/10/27: PS1 - pass keyword to ccrypt in environment variable,
-;; not on command line. Renamed package as jka-compr-ccrypt.
+
+;; 2018/07/25: PS1 - Emacs 26 compatibility: fixed a bug caused by an
+;; incompatible change in write-region.
 ;;
-;; 2003/08/13: JR1 - provide jka-compr existence functions in
-;; jka-compr-ccrypt.el, to keep info.el happy.
+;; 2017/03/05: PS1 - handle variable rename
+;; (inhibit-first-line-modes-suffixes -> inhibit-local-variables-suffixes)
+;; in a backward compatible way.
 ;;
-;; 2003/08/25: PS1 - bugfix
+;; 2017/02/22: PS1 - fixed warnings: inhibit-first-line-modes-suffixes
+;; -> inhibit-local-variables-suffixes, fix buffer-file-type warning.
 ;;
-;; 2006/08/11: PS1 - removed compression functionality, renamed
-;; package as ps-ccrypt. This can now coexist peacefully with
-;; jka-compr.
-;; 
-;; 2008/02/04: PS1 - better error message if ccrypt command not found.
-;; 
-;; 2010/11/10: PS1 - fix mapcar compiler warnings.
+;; 2016/11/13: PS1 - delete KEY earlier (even on password mismatch).
 ;;
-;; 2010/12/28: PS1 - use existing buffer password when re-reading a
-;; file.
-;; 
-;; 2010/12/28: PS1 - when inserting a file in a buffer, use filename,
-;; not buffer name, in password prompt.
+;; 2016/11/13: PS1 - move (setenv "KEY") into the unwind-protect.
+;; Note: this still leaks the password if the user mistyped it.
+;;
+;; 2016/11/13: PS1 - delete password from environment after each use.
+;;
+;; 2010/12/28: PS1 - only display "Password does not match" message if
+;; password was just entered by the user; if the non-matching password
+;; is stored, just prompt for it without error.
 ;;
 ;; 2010/12/28: PS1 - moved "encrypting xx" and "decrypting xx"
 ;; messages inside ps-ccrypt-call-process; this ensures the message
 ;; will appear even after a mismatched password prompt.
-;; 
-;; 2010/12/28: PS1 - only display "Password does not match" message if
-;; password was just entered by the user; if the non-matching password
-;; is stored, just prompt for it without error.
+;;
+;; 2010/12/28: PS1 - when inserting a file in a buffer, use filename,
+;; not buffer name, in password prompt.
+;;
+;; 2010/12/28: PS1 - use existing buffer password when re-reading a
+;; file.
+;;
+;; 2010/11/10: PS1 - fix mapcar compiler warnings.
+;;
+;; 2008/02/04: PS1 - better error message if ccrypt command not found.
+;;
+;; 2006/08/11: PS1 - removed compression functionality, renamed
+;; package as ps-ccrypt. This can now coexist peacefully with
+;; jka-compr.
+;;
+;; 2003/08/25: PS1 - bugfix
+;;
+;; 2003/08/13: JR1 - provide jka-compr existence functions in
+;; jka-compr-ccrypt.el, to keep info.el happy.
+;;
+;; 2001/10/27: PS1 - pass keyword to ccrypt in environment variable,
+;; not on command line. Renamed package as jka-compr-ccrypt.
 
 ;; INSTRUCTIONS:
 ;;
@@ -132,7 +150,7 @@
 ;; anything until the next time the buffer is saved.
 
 ;; ACKNOWLEDGMENTS
-;; 
+;;
 ;; ps-ccrypt is an adaptation of jka-compr, which is part of GNU Emacs.
 ;;
 ;; jka-compr is a V19 adaptation of jka-compr for V18 of Emacs.  Many people
@@ -468,7 +486,7 @@ There should be no more than seven characters after the final `/'."
   :type 'string
   :group 'ps-ccrypt)
 
-(defvar ps-ccrypt-temp-name-table (make-vector 31 nil))
+(defvar ps-ccrypt-temp-name-table (make-vector 31 0))
 
 (defun ps-ccrypt-make-temp-name (&optional local-copy)
   "This routine will return the name of a new file."
