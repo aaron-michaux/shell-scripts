@@ -11,6 +11,8 @@ def file_sizes(directory):
     for root, _, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
+            if os.path.islink(file_path):
+                continue
             file_sizes.append(float(os.path.getsize(file_path)))
     return file_sizes
 
@@ -46,7 +48,6 @@ def plot_bar(ax, categories, values, ylabel, title):
 if __name__ == "__main__":
     directory = os.getcwd()
     print(f"Getting file sizes, directory: {directory}")
-    one_mib = 1024.0 * 1024.0
     one_gib = 1024.0 * 1024.0 * 1024.0
     raw_sizes = file_sizes(directory)
     bin_sizes, bin_totals, bin_counts = transform(raw_sizes)
@@ -54,15 +55,14 @@ if __name__ == "__main__":
 
     categories = [f"{int(math.log2(x))}" for x in bin_sizes]
     bin_sizes_gib = [x / one_gib for x in bin_totals]
+    total = sum(bin_sizes_gib)
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     
-    print(f"Plotting histogram, len(data): {len(raw_sizes)}")
+    print(f"Plotting bar-charts, len(data): {len(raw_sizes)}")
     plot_bar(ax1, categories, bin_counts, "File Count", "Historgram")
 
-    
-    print(f"Plotting bar-char, len(data): {len(raw_sizes)}")
-    plot_bar(ax2, categories, bin_sizes_gib, "Total Size (GiB)", "Disk Usage")
+    plot_bar(ax2, categories, bin_sizes_gib, "Total Size (GiB)", f"Disk Usage (Total={total:.3f} GiB)")
  
     plt.show()
     
