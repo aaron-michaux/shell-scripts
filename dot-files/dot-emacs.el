@@ -73,14 +73,10 @@
  '(initial-frame-alist '((menu-bar-lines . 0) (tool-bar-lines . 0)))
  '(lsp-clangd-binary-path "/usr/local/bin/clangd")
  '(package-selected-packages
-   '(bazel bytecomp clang-format company company-precient
-           company-prescient counsel-etags dockerfile-mode flycheck
-           go-mode groovy-mode lsp-mode lsp-ui origami php-mode
-           plantuml-mode prescient prettier-js projectile
-           protobuf-mode string-inflection vertico vertico-prescient
-           vertigo vertigo-precient vertigo-prescient visual-regexp
-           visual-regexp-steroids wc-mode web-mode which-key
-           window-margin yaml-mode))
+   '(bazel clang-format company-prescient counsel-etags flycheck lsp-mode
+           markdown-mode origami projectile rust-mode
+           string-inflection vertico-prescient visual-regexp-steroids
+           yaml-mode))
  '(safe-local-variable-values '((TeX-master . "poster")))
  '(scroll-bar-mode nil)
  '(set-fill-column 80)
@@ -312,8 +308,10 @@
 
  ;(use-package lsp-ui :commands lsp-ui-mode)
 
- (add-hook 'c-mode-hook 'lsp)
- (add-hook 'c++-mode-hook 'lsp)
+ ;; (add-hook 'c-mode-hook 'lsp)
+ ;; (add-hook 'c++-mode-hook 'lsp)
+ (add-hook 'rust-mode-hook #'lsp)
+ 
  
  ;; The lsp server is now really easy to restart
  (setq lsp-keep-workspace-alive nil)
@@ -330,7 +328,7 @@
  (with-eval-after-load 'lsp-mode
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)))
 
-;; (when 'true (setup-lsp))
+(when 'true (setup-lsp))
 
 
 ;;; ---------------------------------------------------------------------- Eglot
