@@ -137,9 +137,7 @@ to_ss()
     printf %02d:%02d:%02d $H $(expr $M % 60) $S
 }
 
-echo "IF = $INPUT_FILENAME"
 DURATION="$(calc_duration "$INPUT_FILENAME")"
-echo "DURATION: $DURATION"
 OFFSETS="$(calc_parts $DURATION $COUNT)"
 W="$(echo "$SIZE" | awk -Fx '{ print $1 }')"
 H="$(echo "$SIZE" | awk -Fx '{ print $2 }')"
