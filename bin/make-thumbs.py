@@ -7,6 +7,7 @@ import os
 import pdb
 import subprocess
 import sys
+import shlex
 
 from PIL import Image, ImageOps
 
@@ -32,9 +33,13 @@ def make_thumbs(directory, out_dir, thumbnail_count, thumbnail_size):
     os.makedirs(out_dir, exist_ok=True)
 
     # Get the list of movie files (assuming MP4)
-    movie_files = find_movies(abs_directory)
+    movie_files = sorted(find_movies(abs_directory))
+    n_movies = len(movie_files)
 
+    # Make the jobs
+    jobs = []
     lookup = dict()
+    index = 0
     for filename in movie_files:
         base_filename = filename[len(abs_directory)+1:]
         lookup[base_filename] = [f"{thumb_dir}/{base_filename}.{i}.jpeg"
@@ -48,8 +53,16 @@ def make_thumbs(directory, out_dir, thumbnail_count, thumbnail_size):
                        "--size", f"{thumbnail_size[0]}x{thumbnail_size[1]}",
                        "-p", f"{i}",
                        "-o", abs_outfile]
-                print(' '.join(cmd))
-                proc = subprocess.run(cmd)
+                jobs.append(tuple([cmd, abs_outfile, index]))
+                index += 1
+
+    # Execute the jobs
+    for cmd, abs_outfile, index in jobs:
+        if not os.path.isfile(abs_outfile):
+            print(f"Job {index+1}/{len(jobs)}")
+            print(f"{shlex.join(cmd)}")
+            proc = subprocess.run(cmd)
+            print("\n\n")
 
     return lookup
 

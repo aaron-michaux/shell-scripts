@@ -225,6 +225,18 @@ probe_info()
     if [ ! -f "$DATAF" ] ; then
         mkdir -p "$(dirname "$DATAF")"
         ffprobe -v error -hide_banner -of default=noprint_wrappers=0 -print_format flat -select_streams v:0 -show_entries stream=bit_rate,codec_name,duration,width,height,pix_fmt -sexagesimal "$FILENAME" 2>/dev/null  | sed 's,^streams.stream.0.,,' | sed 's,",,g' > "$DATAF"
+        
+        local DUR="$(cat "$DATAF" | grep "duration=N/A" || echo "")"
+        if [ "$DUR" != "" ] ; then
+            local LINE="$(ffprobe  "$FILENAME" 2>&1 | grep Duration)"
+            DUR="$(echo "$LINE" | awk '{ print $2 }' | sed 's/,//g')"
+            BIT="$(echo "$LINE" | awk '{ print $6 }' | sed 's/,//g')"
+            cat "$DATAF" \
+                | sed "s|duration=N/A|duration=$DUR|" \
+                | sed "s|bit_rate=N/A|bit_rate=$BIT|" \
+                               > "$DATAF.bak"
+            cp "$DATAF.bak" "$DATAF"
+        fi
     fi
     cat "$DATAF"   
 }
