@@ -109,7 +109,7 @@ input_directories() {
     cat "$INPUT_DIR_FILE" | sed 's,/$,,'
 }
 
-[ -f "$HOME/TMP" ] && LOG_F="$HOME/TMP/reencode-log.text" || LOG_F="/tmp/reencode-log.text"
+[ -f "$HOME/TMP" ] && LOG_F="$HOME/TMP/yy_reencode.log" || LOG_F="/tmp/yy_reencode.log"
 
 # -- File info
 
