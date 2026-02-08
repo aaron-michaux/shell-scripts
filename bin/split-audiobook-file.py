@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
+
+# DEFAULT_OUTPUT=$(pacmd list-sinks | grep -A1 "* index" | grep -oP "<\K[^ >]+")
+# ffmpeg -f pulse -ac 2 -i $DEFAULT_OUTPUT.monitor output.mp3
+
+
 import argparse
+import contextlib
 import datetime
 import json
 import math
@@ -65,6 +71,7 @@ def safe_filename(name: str) -> str:
     name = name.strip().replace("\0", "").replace("/", "-")
     name = re.sub(r"\s+", " ", name) # Replace runs of white spaceship
     name = re.sub(r"[\x00-\x1f\x7f]", "", name) # remove control characters
+    name = name.replace("'", "").replace('"', '')
     name = name.lstrip(" .")
     return name.strip()
 
@@ -77,6 +84,16 @@ def is_positive_finiate_float(s: str) -> bool:
 def is_all_dashes(s: str) -> bool:
     return len(s) > 0 and set(s) == {"-"}
 
+
+@contextlib.contextmanager
+def chdir(path):
+    old = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old)
+        
 # ----------------------------------------------------------------------------------------- Chapters
 
 class Chapter:
@@ -268,12 +285,14 @@ Manifest: {manifest_filename}
     n_chapters = len(chapters)
     os.makedirs(output_directory, exist_ok=True)
     if has_cover:
-        shutil.copy2(cover_file, output_directory)
-    shutil.copy2(chapters_file, output_directory)
+        command = ["magick", cover_file, f"{output_directory}/cover.jpg"]
+        subprocess.run(command, check=True)
+    shutil.copy2(chapters_file, f"{output_directory}/chapters.text")
+    shutil.copy2(manifest_filename, f"{output_directory}/manifest.json")
 
     def process_chapter(index):
         ch = chapters[index]
-        output_basename = f"{out_name} - Part {index+1:02d}.mp3"
+        output_basename = f"{out_name} - {index+1:02d} - {safe_filename(ch.title)}.mp3"
         output_file = f"{output_directory}/{output_basename}"
         label = output_basename
         
@@ -282,12 +301,14 @@ Manifest: {manifest_filename}
         if ch.stop is not None:
             command += ["-to", f"{ch.stop}"]
         command += ["-i", audio_file, "-vn"]
-        command += ["-af", "silenceremove=start_periods=1:start_duration=0.2:start_threshold=-100dB,adelay=1000:all=1"]
-        command += ["-c:a", "libmp3lame", "-q:a", "2", output_file]
+        # command += ["-af", "silenceremove=start_periods=1:start_duration=0.2:start_threshold=-100dB,adelay=1000:all=1"]
+        command += ["-c:a", "libmp3lame", "-q:a", "2"]
+        command += [output_file]
         proc = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
         returncode = proc.returncode
         output = proc.stdout
+
         if returncode == 0:    
             # Apply tags
             command = ["id3v2"]
@@ -300,6 +321,13 @@ Manifest: {manifest_filename}
             returncode = proc.returncode
             output += proc.stdout
 
+        if returncode == 0 and has_cover:
+            with chdir(output_directory):
+                command = ["eyeD3", "--add-image", "cover.jpg:FRONT_COVER", output_basename]
+                proc = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                returncode = proc.returncode
+                output += proc.stdout
+                            
         return returncode, label, output
 
 
@@ -317,7 +345,9 @@ Manifest: {manifest_filename}
 
     if failures:
         raise SystemExit(f"{failures} job(s) failed.")
-        
+
+
+    
 # def harness(filename):
 #     print_info(f"harness: {filename}")
 #     chapters = load_chapters_file(filename)
