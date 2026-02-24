@@ -328,7 +328,7 @@
  (with-eval-after-load 'lsp-mode
   (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)))
 
-(when 'true (setup-lsp))
+;(when 'true (setup-lsp))
 
 
 ;;; ---------------------------------------------------------------------- Eglot
