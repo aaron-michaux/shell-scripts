@@ -6,3 +6,7 @@ debug
 foo.*
 *.log
 data
+<<<<<<< HEAD
+=======
+lazy-lock.json
+>>>>>>> a1433c2 (added config-nvim)

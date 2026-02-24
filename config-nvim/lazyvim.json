@@ -1,6 +1,10 @@
 {
   "extras": [
+<<<<<<< HEAD
 
+=======
+    "lazyvim.plugins.extras.coding.yanky"
+>>>>>>> a1433c2 (added config-nvim)
   ],
   "install_version": 8,
   "news": {
