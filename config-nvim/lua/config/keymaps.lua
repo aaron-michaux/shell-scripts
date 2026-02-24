@@ -1,8 +1,6 @@
 -- Keymaps are automatically loaded on the VeryLazy event
 -- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
 -- Add any additional keymaps here
-<<<<<<< HEAD
-=======
 
 vim.notify("Loaded config/keymaps.lua")
 
@@ -73,4 +71,3 @@ end, {expr = true, replace_keycodes = true, desc = "Shorten window"})
 -- Kill to end of the line
 --  Use "D" or <C-o>D
 
->>>>>>> a1433c2 (added config-nvim)
