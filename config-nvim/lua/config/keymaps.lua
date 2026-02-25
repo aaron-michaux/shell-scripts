@@ -20,7 +20,18 @@ vim.keymap.set("n", "<leader>=", "<C-a>")
 vim.keymap.set("n", "<leader>+", "<C-a>")
 vim.keymap.set("n", "<leader>-", "<C-x>")
 
+-- Window (pane) navigation
+vim.keymap.set("n", "<S-Left>", "<C-w>h", { silent = true })
+vim.keymap.set("n", "<S-Down>", "<C-w>j", { silent = true })
+vim.keymap.set("n", "<S-Up>", "<C-w>k", { silent = true })
+vim.keymap.set("n", "<S-Right>", "<C-w>l", { silent = true })
+vim.keymap.set("i", "<S-Left>", "<C-o><C-w>h", { silent = true })
+vim.keymap.set("i", "<S-Down>", "<C-o><C-w>j", { silent = true })
+vim.keymap.set("i", "<S-Up>", "<C-o><C-w>k", { silent = true })
+vim.keymap.set("i", "<S-Right>", "<C-o><C-w>l", { silent = true })
+
 -- Comment/uncomment region
+-- Use gc
 
 -- Start/end of line
 vim.keymap.set("n", "<C-a>", "^")
@@ -28,9 +39,9 @@ vim.keymap.set("i", "<C-a>", "<C-o>^", { desc = "Beginning of line", silent = tr
 vim.keymap.set("n", "<C-e>", "$")
 vim.keymap.set("i", "<C-e>", "<End>", { desc = "End of line", silent = true })
 
-vim.keymap.set({"n", "i"}, "<M-BS>", function()
+vim.keymap.set({ "n", "i" }, "<M-BS>", function()
   return vim.fn.mode() == "i" and "<C-o>db" or "db"
-end, {expr = true, replace_keycodes = true, desc = "Delete word backwards"})
+end, { expr = true, replace_keycodes = true, desc = "Delete word backwards" })
 
 vim.keymap.set("n", "<M-Left>", "b")
 vim.keymap.set("n", "<M-Right>", "w")
@@ -41,33 +52,32 @@ vim.keymap.set("i", "<M-Right>", "<C-o>dw", { desc = "Delete word forwards", sil
 vim.keymap.set("i", "<M-Up>", "<C-o>{", { desc = "Previous paragraph", silent = true })
 vim.keymap.set("i", "<M-Down>", "<C-o>}", { desc = "Next paragraph", silent = true })
 
-vim.keymap.set({"n", "i"}, "<C-Left>", function()
+vim.keymap.set({ "n", "i" }, "<C-Left>", function()
   return vim.fn.mode() == "i" and "<C-o>b" or "b"
-end, {expr = true, replace_keycodes = true, desc = "Backwards one word"})
-vim.keymap.set({"n", "i"}, "<C-Right>", function()
+end, { expr = true, replace_keycodes = true, desc = "Backwards one word" })
+vim.keymap.set({ "n", "i" }, "<C-Right>", function()
   return vim.fn.mode() == "i" and "<C-o>w" or "w"
-end, {expr = true, replace_keycodes = true, desc = "Forwards one word"})
-vim.keymap.set({"n", "i"}, "<C-Up>", function()
+end, { expr = true, replace_keycodes = true, desc = "Forwards one word" })
+vim.keymap.set({ "n", "i" }, "<C-Up>", function()
   return vim.fn.mode() == "i" and "<C-o>{" or "{"
-end, {expr = true, replace_keycodes = true, desc = "Previous paragraph"})
-vim.keymap.set({"n", "i"}, "<C-Down>", function()
+end, { expr = true, replace_keycodes = true, desc = "Previous paragraph" })
+vim.keymap.set({ "n", "i" }, "<C-Down>", function()
   return vim.fn.mode() == "i" and "<C-o>}" or "}"
-end, {expr = true, replace_keycodes = true, desc = "Next paragraph"})
+end, { expr = true, replace_keycodes = true, desc = "Next paragraph" })
 
 ----------------------------------------------------------------- Window Resize
-vim.keymap.set({"n", "i"}, "<C-S-Left>", function()
+vim.keymap.set({ "n", "i" }, "<C-S-Left>", function()
   return vim.fn.mode() == "i" and "<C-o><C-w><" or "<C-w><"
-end, {expr = true, replace_keycodes = true, desc = "Narrow window"})
-vim.keymap.set({"n", "i"}, "<C-S-Right>", function()
+end, { expr = true, replace_keycodes = true, desc = "Narrow window" })
+vim.keymap.set({ "n", "i" }, "<C-S-Right>", function()
   return vim.fn.mode() == "i" and "<C-o><C-w>>" or "<C-w>>"
-end, {expr = true, replace_keycodes = true, desc = "Widen window"})
-vim.keymap.set({"n", "i"}, "<C-S-Up>", function()
+end, { expr = true, replace_keycodes = true, desc = "Widen window" })
+vim.keymap.set({ "n", "i" }, "<C-S-Up>", function()
   return vim.fn.mode() == "i" and "<C-o><C-w>+" or "<C-w>+"
-end, {expr = true, replace_keycodes = true, desc = "Heighten window"})
-vim.keymap.set({"n", "i"}, "<C-S-Down>", function()
+end, { expr = true, replace_keycodes = true, desc = "Heighten window" })
+vim.keymap.set({ "n", "i" }, "<C-S-Down>", function()
   return vim.fn.mode() == "i" and "<C-o><C-w>-" or "<C-w>-"
-end, {expr = true, replace_keycodes = true, desc = "Shorten window"})
+end, { expr = true, replace_keycodes = true, desc = "Shorten window" })
 
 -- Kill to end of the line
 --  Use "D" or <C-o>D
-

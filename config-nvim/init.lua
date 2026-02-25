@@ -31,13 +31,11 @@ vim.api.nvim_create_autocmd({ "BufWinEnter", "WinNew" }, {
   end,
 })
 
-vim.api.nvim_create_autocmd({ "BufWinEnter", "WinEnter" }, {
-  callback = function()
-    local buf = vim.api.nvim_get_current_buf()
-    local name = vim.api.nvim_buf_get_name(buf)
-    if name:match("snacks_picker_preview") then
-      vim.opt_local.wrap = true
-      vim.opt_local.linebreak = true
-    end
-  end,
+----------------------------------------------------------- File Types
+
+vim.filetype.add({
+  pattern = {
+    [".*%.yaml%.gotmpl"] = "yaml.gotmpl",
+    [".*%.yml%.gotmpl"] = "yaml.gotmpl",
+  },
 })
