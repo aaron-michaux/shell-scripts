@@ -65,6 +65,13 @@ vim.keymap.set({ "n", "i" }, "<C-Down>", function()
   return vim.fn.mode() == "i" and "<C-o>}" or "}"
 end, { expr = true, replace_keycodes = true, desc = "Next paragraph" })
 
+-------------------------------------------------------- Swap Char Under Cursor
+
+vim.keymap.set("n", "<C-t>", "hxpl", { silent = true })
+vim.keymap.set("i", "<C-t>", function()
+  F.transpose_chars()
+end, { silent = true })
+
 ----------------------------------------------------------------- Window Resize
 vim.keymap.set({ "n", "i" }, "<C-S-Left>", function()
   return vim.fn.mode() == "i" and "<C-o><C-w><" or "<C-w><"

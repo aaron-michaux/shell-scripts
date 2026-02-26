@@ -1,4 +1,3 @@
-
 local M = {}
 
 -------------------------------------------------------------------------------------- Rename File (command)
@@ -34,6 +33,26 @@ function M.rename_file()
   vim.notify(("Renamed:\n%s --> %s"):format(old, new), vim.log.levels.INFO)
 end
 
+function M.transpose_chars()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local line = vim.api.nvim_get_current_line()
+
+  if col == #line then
+    if col == 0 then
+      return
+    end
+    col = col - 1
+  end
+
+  if #line < 2 or col >= #line then
+    return
+  end
+
+  local chars = { line:byte(1, -1) }
+  chars[col + 1], chars[col + 2] = chars[col + 2], chars[col + 1]
+
+  vim.api.nvim_set_current_line(string.char(unpack(chars)))
+  vim.api.nvim_win_set_cursor(0, { row, col + 1 })
+end
+
 return M
-
-
