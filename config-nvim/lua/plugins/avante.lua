@@ -8,7 +8,7 @@ return {
     providers = {
       ollama = {
         endpoint = "http://127.0.0.1:11434",
-        model = "codellama:13b",
+        model = "qwen3:8b",
       },
     },
 
