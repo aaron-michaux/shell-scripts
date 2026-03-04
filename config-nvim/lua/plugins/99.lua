@@ -11,7 +11,7 @@ return {
     _99.setup({
       -- provider = _99.Providers.ClaudeCodeProvider,  -- default: OpenCodeProvider
       provider = _99.Providers.OpenCodeProvider,
-      model = "ollama/qwen3:8b",
+      model = "ollama/qwen2.5-coder:32b",
 
       -- :lua require("99").view_logs()
 
