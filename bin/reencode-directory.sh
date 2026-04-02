@@ -299,7 +299,7 @@ process_manifest() {
       fi
     fi
 
-    "$SCRIPT_DIR/set-videohash-xattr.py" "$FILENAME" >/dev/null 2>&1 || true
+    "$SCRIPT_DIR/set-videohash-xattr.py" "$FILENAME" >/dev/null 2>&1 </dev/null || true
 
     TOTAL_MEGS_SAVED="$(echo "$TOTAL_MEGS_SAVED + $(megabytes_gain "$FILENAME")" | bc)"
 
