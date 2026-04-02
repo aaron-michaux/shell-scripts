@@ -18,6 +18,8 @@ import argparse
 import os
 import subprocess
 import sys
+import shutil
+import tempfile
 from pathlib import Path
 from PIL import Image
 
@@ -28,6 +30,9 @@ if not hasattr(Image, "ANTIALIAS"):
 from videohash import VideoHash
 
 XATTR_NAME = "user.videohash"
+
+# Stop ffmpeg from reading from stdin
+sys.stdin = open('/dev/null')
 
 def get_xattr(path: Path, attr_name: str) -> str | None:
     try:

@@ -30,6 +30,9 @@ if not hasattr(Image, "ANTIALIAS"):
 
 from videohash import VideoHash
 
+# Stop ffmpeg from reading from stdin
+sys.stdin = open('/dev/null')
+
 XATTR_NAME = "user.videohash"
 
 
