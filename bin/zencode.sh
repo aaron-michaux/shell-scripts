@@ -37,18 +37,18 @@ show_help() {
 
    Usage: $(basename "$0") [OPTIONS...]
 
-      Re-encodes a single video file, setting attributes along the way. The original video is 
+      Re-encodes a single video file, setting attributes along the way. The original video is
       backed up to: '$BAK_D'
 
    Required Arguments
 
       -i <filename>        Input filename
 
-   Options With Defaults      
+   Options With Defaults
 
       -c|--codec <codec>   The desired codec; default is $DESIRED_CODEC
       --crf <int>          Constant quality rate to use with codec; default is $CRF
-      --max-bitrate <int>  Do not encode desired-codec videos with bitrate less than this; 
+      --max-bitrate <int>  Do not encode desired-codec videos with bitrate less than this;
                            default is $MAX_BITRATE (kb/s)
 
    Other Options

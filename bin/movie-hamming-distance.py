@@ -134,7 +134,7 @@ def main() -> int:
         default=XATTR_NAME,
         help=f"xattr name to read/write (default: {XATTR_NAME})",
     )
-    parser.add_argument("--with-exit-code", default=False, help="Will exit [0-5] depending on similarity, with exit 0 the most similar.")
+    parser.add_argument("--with-exit-code", action="store_true", help="Will exit [0-5] depending on similarity, with exit 0 the most similar.")
     args = parser.parse_args()
 
     tempdir = tempfile.mkdtemp()
