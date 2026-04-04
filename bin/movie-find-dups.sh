@@ -49,12 +49,11 @@ file_pairs() {
   done
 }
 
-DIR="$1"
+(($# == 0)) && DIR="." || DIR="$1"
 file_pairs "$DIR" | while read A B; do
   set +e
   movie-hamming-distance.py --with-exit-code "$A" "$B" 1>/dev/null 2>/dev/null </dev/null
   DIST=$?
-  if (($DIST == 0)); then
-    printf "%-50q  %-50q\n" "$A" "$B"
-  fi
+  set -e
+  printf "%d   %-50q  %-50q\n" $DIST "$A" "$B"
 done
