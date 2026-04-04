@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from itertools import combinations
+import shlex
 import argparse
 import os
 import subprocess
@@ -105,6 +107,9 @@ def normalized_distance(d: int) -> int:
             return counter
         counter += 1
 
+def norm_dist(a_int, b_int) -> int:
+    return normalized_distance((a_int ^ b_int).bit_count())
+
 def interpret_distance(d: int) -> str:
     """
     Convert Hamming distance into a human-readable interpretation.
@@ -133,16 +138,52 @@ def find_files(root, excluded):
         if path.is_file() and path.suffix.lower() not in excluded
     ]
 
+def bash_quote_three(a: str, b: str, c: str) -> str:
+    result = subprocess.run(
+        ["bash", "-c", 'printf "%q   %-60q %q\n" "$1" "$2" "$3"', "_", a, b, c],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.rstrip("\n")
+
+def quote_tuple(x):
+    return bash_quote_three(str(x[0]), x[1], x[2])
+
 def main():
+    parser = argparse.ArgumentParser(description="Find suspected duplicates")
+    parser.add_argument(
+        "directory",
+        nargs="?",
+        default=".",
+        help="Directory to scan (defaults to current directory)"
+    )
+
+    args = parser.parse_args()
+    directory = args.directory
+    print(f"Scanning directory: {directory}")
+
     tempdir = tempfile.mkdtemp()
     tempfile.tempdir = tempdir
     try:
         excluded = {".jpg", ".jpeg", ".png", ".nfo"}
-        files = find_files(".", excluded)
+        files = find_files(directory , excluded)
         print(f"Loaded {len(files)} files; loading hashes")
         with_hash = [(f, load_hash(f, XATTR_NAME)) for f in files]
         filtered = [(f, h) for f, h in with_hash if h is not None]
-        print(f"Loaded hashes")
+        print(f"Loaded hashes.")
+        combos = [t1 + t2 for (t1, t2) in combinations(filtered, 2)]
+        dists = [(norm_dist(x[1], x[3]), x[0], x[2]) for x in combos]
+        def final_tuple(x):
+            f0 = str(x[1].relative_to(directory))
+            f1 = str(x[2].relative_to(directory))
+            f0, f1 = sorted([f0, f1])
+            return (x[0], f0, f1)
+        final = sorted([final_tuple(x) for x in dists])
+        for x in final:
+            print(quote_tuple(x))
+
+
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
 
