@@ -11,6 +11,7 @@ cleanup() {
 # -- Joplin Backup
 JOPLIN_CLI=/home/amichaux/Development/github-repos/shell-scripts/bin/joplin-cli
 export JOPLIN_EXPORT_DIR=$TMPD/joplin-backup
+mkdir -p $JOPLIN_EXPORT_DIR
 $JOPLIN_CLI export --format md_frontmatter /export
 JOPLIN_DIR=$HOME/Documents/Joplin
 rsync -ac --delete $JOPLIN_EXPORT_DIR/ $JOPLIN_DIR/
