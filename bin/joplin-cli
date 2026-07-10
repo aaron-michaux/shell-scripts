@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# if [ ! -v JOPLIN_API_TOKEN ] ; then
+#     if [ -f /home/amichaux/.config/joplin-desktop/settings.json ] ; then
+#         JOPLIN_API_TOKEN="$(jq -r '."api.token"' /home/amichaux/.config/joplin-desktop/settings.json)"
+#     else
+#         echo "Joplin API token was not set in environment; aborting" 1>&2 && exit 1
+#     fi
+# fi
+
+if [ ! -v JOPLIN_EXPORT_DIR ] ; then
+    JOPLIN_EXPORT_DIR=/home/amichaux/Documents/CrashPlan/Archive/Joplin/default
+fi
+
+JOPLIN_BASE_URL=http://192.168.1.2/joplin
+JOPLIN_PROFILE_DIR="${JOPLIN_PROFILE_DIR:-$HOME/.joplin-cli}"
+mkdir -p "$JOPLIN_PROFILE_DIR"
+
+exec docker run --rm \
+     --user "$(id -u):$(id -g)" \
+     -e JOPLIN_BASE_URL -v "$JOPLIN_EXPORT_DIR:/export" -v "$JOPLIN_PROFILE_DIR:/root/.config/joplin" \
+     joplin-cli "$@"
+
