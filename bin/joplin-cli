@@ -16,8 +16,11 @@ JOPLIN_BASE_URL=http://192.168.1.2/joplin
 JOPLIN_PROFILE_DIR="${JOPLIN_PROFILE_DIR:-$HOME/.joplin-cli}"
 mkdir -p "$JOPLIN_PROFILE_DIR"
 
-exec docker run --rm \
-     --user "$(id -u):$(id -g)" \
-     -e JOPLIN_BASE_URL -v "$JOPLIN_EXPORT_DIR:/export" -v "$JOPLIN_PROFILE_DIR:/root/.config/joplin" \
-     joplin-cli "$@"
+docker run --rm --name joplin-cli \
+       --user "$(id -u):$(id -g)" \
+       -e HOME=/home/joplin \
+       -e JOPLIN_BASE_URL=$JOPLIN_BASE_URL \
+       -v "$JOPLIN_EXPORT_DIR:/export:rw" \
+       -v "$JOPLIN_PROFILE_DIR:/home/joplin/.config/joplin" \
+       joplin-cli "$@"
 

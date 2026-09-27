@@ -426,6 +426,15 @@
 ;(setq projectile-enable-caching nil)
 (setq projectile-enable-caching t)
 
+;;; --------------------------------------------------------------- mogrify mode
+
+(require 'mogrify-mode)
+
+(add-to-list 'auto-mode-alist '("\\.mogrify\\'" . mogrify-mode))
+
+(add-hook 'mogrify-mode-hook 'visual-line-mode)
+(add-hook 'mogrify-mode-hook 'flyspell-mode)
+
 ;;; ------------------------------------------------------------------ yaml mode
 
 (use-package yaml-mode)
